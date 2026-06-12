@@ -36,6 +36,9 @@ CREATE TABLE worker_profiles (
   avg_rating NUMERIC(2,1) NOT NULL DEFAULT 0,
   total_reviews INT NOT NULL DEFAULT 0,
   jobs_completed INT NOT NULL DEFAULT 0,
+  dni_doc_path TEXT,
+  antecedentes_doc_path TEXT,
+  certificados_doc_paths TEXT[],
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -385,3 +388,45 @@ CREATE POLICY "tags_write" ON worker_tags
 
 ALTER PUBLICATION supabase_realtime ADD TABLE messages;
 ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
+
+-- ============================================
+-- 12. STORAGE — Buckets y políticas
+-- ============================================
+-- IMPORTANTE: Los buckets deben crearse manualmente en el
+-- dashboard de Supabase > Storage > New bucket:
+--   · avatars          → público   (Public bucket: ON)
+--   · job-attachments  → público   (Public bucket: ON)
+--   · worker-documents → privado   (Public bucket: OFF)
+
+-- Políticas para worker-documents (bucket privado)
+CREATE POLICY "worker_upload_own_docs" ON storage.objects
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    bucket_id = 'worker-documents'
+    AND auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+CREATE POLICY "worker_read_own_docs" ON storage.objects
+  FOR SELECT TO authenticated
+  USING (
+    bucket_id = 'worker-documents'
+    AND auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+-- Políticas para avatars (bucket público)
+CREATE POLICY "avatars_upload_own" ON storage.objects
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    bucket_id = 'avatars'
+    AND auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+CREATE POLICY "avatars_update_own" ON storage.objects
+  FOR UPDATE TO authenticated
+  USING (
+    bucket_id = 'avatars'
+    AND auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+CREATE POLICY "avatars_read_public" ON storage.objects
+  FOR SELECT USING (bucket_id = 'avatars');
