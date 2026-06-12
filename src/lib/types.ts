@@ -1,87 +1,82 @@
 // ============================================================
-// Enums — deben coincidir con los tipos en PostgreSQL
+// Enums
 // ============================================================
 
 export type UserRole = 'client' | 'worker'
-export type JobStatus = 'pending' | 'active' | 'closed' | 'cancelled'
+export type JobStatus = 'active' | 'matched' | 'finished' | 'cancelled'
 export type ApplicationStatus = 'pending' | 'accepted' | 'rejected'
 export type MatchStatus = 'accepted' | 'on_the_way' | 'in_progress' | 'finished'
 export type SubscriptionPlan = 'basic' | 'premium'
-export type SubscriptionStatus = 'active' | 'cancelled' | 'past_due'
+export type SubscriptionStatus = 'active' | 'cancelled' | 'expired'
 export type NotificationType =
   | 'new_application'
-  | 'match_accepted'
-  | 'status_changed'
+  | 'job_finished'
   | 'new_message'
-  | 'review_request'
+  | 'match_accepted'
+  | 'review_pending'
 
 // ============================================================
-// Row types — mirrors de cada tabla
+// Row types — mirrors exactos del schema.sql
 // ============================================================
 
 export interface ClientProfile {
-  id: string
-  user_id: string
-  nombre: string
-  telefono: string | null
-  provincia: string
-  distrito: string
-  avg_rating: number
-  total_reviews: number
-  jobs_posted: number
+  id: string           // PK = auth.users.id
+  full_name: string
+  phone: string | null
+  avatar_url: string | null
+  province: string
+  district: string
+  address: string | null
   created_at: string
-  updated_at: string
 }
 
 export interface WorkerProfile {
-  id: string
-  user_id: string
-  nombre: string
+  id: string           // PK = auth.users.id
+  full_name: string
+  phone: string | null
+  avatar_url: string | null
   dni: string
   bio: string | null
-  zona_cobertura: string | null
-  location: string | null // GEOGRAPHY(POINT, 4326) — serializado como string
+  coverage_zone: string
+  location: string | null  // GEOGRAPHY(POINT,4326) serializado como WKT
+  ruc_verified: boolean
+  identity_verified: boolean
   avg_rating: number
   total_reviews: number
   jobs_completed: number
-  is_verified: boolean
   created_at: string
-  updated_at: string
 }
 
 export interface Category {
-  id: string
-  nombre: string
-  icono: string | null
-  created_at: string
+  id: number           // SERIAL (entero)
+  name: string
+  icon: string | null
 }
 
 export interface WorkerSpecialty {
-  id: string
+  id: number
   worker_id: string
-  category_id: string
-  created_at: string
+  category_id: number
 }
 
 export interface WorkerTag {
-  id: string
+  id: number
   worker_id: string
   tag: string
-  created_at: string
 }
 
 export interface JobPost {
   id: string
   client_id: string
-  category_id: string
-  titulo: string
-  descripcion: string
-  location: string // GEOGRAPHY(POINT, 4326)
-  direccion: string
-  distrito: string
+  category_id: number
+  title: string | null
+  description: string
   status: JobStatus
+  province: string
+  district: string
+  address: string | null
+  location: string | null
   current_radius_km: number
-  scheduled_date: string | null
   created_at: string
   updated_at: string
 }
@@ -89,8 +84,8 @@ export interface JobPost {
 export interface JobAttachment {
   id: string
   job_post_id: string
-  url: string
-  type: 'image' | 'video'
+  file_url: string
+  file_type: 'image' | 'video'
   created_at: string
 }
 
@@ -98,23 +93,19 @@ export interface Application {
   id: string
   job_post_id: string
   worker_id: string
-  mensaje: string | null
   status: ApplicationStatus
-  created_at: string
-  updated_at: string
+  applied_at: string
 }
 
 export interface JobMatch {
   id: string
   job_post_id: string
-  application_id: string
   worker_id: string
-  client_id: string
+  application_id: string
+  agreed_price: number | null
   status: MatchStatus
-  scheduled_date: string | null
-  worker_notes: string | null
-  created_at: string
-  updated_at: string
+  matched_at: string
+  finished_at: string | null
 }
 
 export interface Message {
@@ -122,7 +113,7 @@ export interface Message {
   application_id: string
   sender_id: string
   content: string
-  created_at: string
+  sent_at: string
 }
 
 export interface Review {
@@ -132,7 +123,6 @@ export interface Review {
   reviewed_id: string
   rating: number
   comment: string | null
-  is_default: boolean
   created_at: string
 }
 
@@ -145,24 +135,21 @@ export interface Subscription {
   current_period_start: string | null
   current_period_end: string | null
   created_at: string
-  updated_at: string
 }
 
 export interface Notification {
   id: string
   user_id: string
   type: NotificationType
-  titulo: string
+  title: string
   body: string
-  data: Record<string, unknown> | null
   read: boolean
+  reference_id: string | null
   created_at: string
 }
 
 // ============================================================
 // Tipo Database para el cliente Supabase con generics
-// Reemplazar con `npx supabase gen types typescript` cuando
-// el proyecto Supabase esté creado.
 // ============================================================
 
 export type Database = {
@@ -170,27 +157,27 @@ export type Database = {
     Tables: {
       client_profiles: {
         Row: ClientProfile
-        Insert: Omit<ClientProfile, 'id' | 'created_at' | 'updated_at' | 'avg_rating' | 'total_reviews' | 'jobs_posted'>
+        Insert: Omit<ClientProfile, 'created_at'>
         Update: Partial<Omit<ClientProfile, 'id' | 'created_at'>>
       }
       worker_profiles: {
         Row: WorkerProfile
-        Insert: Omit<WorkerProfile, 'id' | 'created_at' | 'updated_at' | 'avg_rating' | 'total_reviews' | 'jobs_completed' | 'is_verified'>
+        Insert: Omit<WorkerProfile, 'avg_rating' | 'total_reviews' | 'jobs_completed' | 'ruc_verified' | 'identity_verified' | 'created_at'>
         Update: Partial<Omit<WorkerProfile, 'id' | 'created_at'>>
       }
       categories: {
         Row: Category
-        Insert: Omit<Category, 'id' | 'created_at'>
-        Update: Partial<Omit<Category, 'id' | 'created_at'>>
+        Insert: Omit<Category, 'id'>
+        Update: Partial<Omit<Category, 'id'>>
       }
       worker_specialties: {
         Row: WorkerSpecialty
-        Insert: Omit<WorkerSpecialty, 'id' | 'created_at'>
+        Insert: Omit<WorkerSpecialty, 'id'>
         Update: never
       }
       worker_tags: {
         Row: WorkerTag
-        Insert: Omit<WorkerTag, 'id' | 'created_at'>
+        Insert: Omit<WorkerTag, 'id'>
         Update: never
       }
       job_posts: {
@@ -205,27 +192,27 @@ export type Database = {
       }
       applications: {
         Row: Application
-        Insert: Omit<Application, 'id' | 'created_at' | 'updated_at' | 'status'>
-        Update: Partial<Pick<Application, 'status' | 'updated_at'>>
+        Insert: Omit<Application, 'id' | 'applied_at' | 'status'>
+        Update: Partial<Pick<Application, 'status'>>
       }
       job_matches: {
         Row: JobMatch
-        Insert: Omit<JobMatch, 'id' | 'created_at' | 'updated_at'>
-        Update: Partial<Omit<JobMatch, 'id' | 'created_at'>>
+        Insert: Omit<JobMatch, 'id' | 'matched_at'>
+        Update: Partial<Omit<JobMatch, 'id' | 'matched_at'>>
       }
       messages: {
         Row: Message
-        Insert: Omit<Message, 'id' | 'created_at'>
+        Insert: Omit<Message, 'id' | 'sent_at'>
         Update: never
       }
       reviews: {
         Row: Review
-        Insert: Omit<Review, 'id' | 'created_at' | 'is_default'>
+        Insert: Omit<Review, 'id' | 'created_at'>
         Update: never
       }
       subscriptions: {
         Row: Subscription
-        Insert: Omit<Subscription, 'id' | 'created_at' | 'updated_at'>
+        Insert: Omit<Subscription, 'id' | 'created_at'>
         Update: Partial<Omit<Subscription, 'id' | 'created_at'>>
       }
       notifications: {
@@ -236,29 +223,23 @@ export type Database = {
     }
     Functions: {
       get_nearby_jobs: {
-        Args: { worker_location: string; radius_km: number; category_ids: string[] }
-        Returns: (JobPost & { distance_km: number })[]
+        Args: {
+          worker_location: string
+          radius_km: number
+          worker_category_ids: number[] | null
+        }
+        Returns: {
+          job_id: string
+          title: string | null
+          description: string
+          category_name: string
+          district: string
+          distance_km: number
+          created_at: string
+          client_name: string
+          applicant_count: number
+        }[]
       }
-      check_daily_application_limit: {
-        Args: { p_worker_id: string }
-        Returns: boolean
-      }
-      expand_job_radius: {
-        Args: Record<string, never>
-        Returns: void
-      }
-      insert_default_reviews: {
-        Args: Record<string, never>
-        Returns: void
-      }
-    }
-    Enums: {
-      job_status: JobStatus
-      application_status: ApplicationStatus
-      match_status: MatchStatus
-      subscription_plan: SubscriptionPlan
-      subscription_status: SubscriptionStatus
-      notification_type: NotificationType
     }
   }
 }

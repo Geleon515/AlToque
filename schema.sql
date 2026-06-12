@@ -1,0 +1,387 @@
+-- ============================================
+-- AlToque — Schema completo para Supabase
+-- ============================================
+
+-- Activar PostGIS para geolocalización
+CREATE EXTENSION IF NOT EXISTS postgis;
+
+-- ============================================
+-- 1. TABLAS BASE
+-- ============================================
+
+-- Perfiles de cliente
+CREATE TABLE client_profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  full_name TEXT NOT NULL,
+  phone TEXT,
+  avatar_url TEXT,
+  province TEXT NOT NULL DEFAULT 'Callao',
+  district TEXT NOT NULL,
+  address TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Perfiles de trabajador
+CREATE TABLE worker_profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  full_name TEXT NOT NULL,
+  phone TEXT,
+  avatar_url TEXT,
+  dni TEXT UNIQUE NOT NULL,
+  bio TEXT,
+  coverage_zone TEXT NOT NULL,
+  location GEOGRAPHY(POINT, 4326),
+  ruc_verified BOOLEAN NOT NULL DEFAULT false,
+  identity_verified BOOLEAN NOT NULL DEFAULT false,
+  avg_rating NUMERIC(2,1) NOT NULL DEFAULT 0,
+  total_reviews INT NOT NULL DEFAULT 0,
+  jobs_completed INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Categorías de servicio (datos fijos)
+CREATE TABLE categories (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  icon TEXT
+);
+
+INSERT INTO categories (name, icon) VALUES
+  ('Plomería', 'wrench'),
+  ('Electricidad', 'zap'),
+  ('Limpieza', 'sparkles'),
+  ('Carpintería', 'hammer'),
+  ('Mudanza', 'truck'),
+  ('Otros Servicios', 'more-horizontal');
+
+-- Especialidades del trabajador (muchos a muchos)
+CREATE TABLE worker_specialties (
+  id SERIAL PRIMARY KEY,
+  worker_id UUID NOT NULL REFERENCES worker_profiles(id) ON DELETE CASCADE,
+  category_id INT NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+  UNIQUE(worker_id, category_id)
+);
+
+-- Tags de especialidad del trabajador (ej: "Tableros Eléctricos", "Iluminación LED")
+CREATE TABLE worker_tags (
+  id SERIAL PRIMARY KEY,
+  worker_id UUID NOT NULL REFERENCES worker_profiles(id) ON DELETE CASCADE,
+  tag TEXT NOT NULL
+);
+
+-- ============================================
+-- 2. PUBLICACIONES Y POSTULACIONES
+-- ============================================
+
+-- Publicaciones de trabajo del cliente
+CREATE TABLE job_posts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id UUID NOT NULL REFERENCES client_profiles(id) ON DELETE CASCADE,
+  category_id INT NOT NULL REFERENCES categories(id),
+  title TEXT,
+  description TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active'
+    CHECK (status IN ('active', 'matched', 'finished', 'cancelled')),
+  province TEXT NOT NULL DEFAULT 'Callao',
+  district TEXT NOT NULL,
+  address TEXT,
+  location GEOGRAPHY(POINT, 4326),
+  current_radius_km INT NOT NULL DEFAULT 5,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Archivos adjuntos de publicaciones (fotos/videos, máx 5)
+CREATE TABLE job_attachments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_post_id UUID NOT NULL REFERENCES job_posts(id) ON DELETE CASCADE,
+  file_url TEXT NOT NULL,
+  file_type TEXT NOT NULL CHECK (file_type IN ('image', 'video')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Postulaciones de trabajadores
+CREATE TABLE applications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_post_id UUID NOT NULL REFERENCES job_posts(id) ON DELETE CASCADE,
+  worker_id UUID NOT NULL REFERENCES worker_profiles(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'accepted', 'rejected')),
+  applied_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(job_post_id, worker_id)
+);
+
+-- ============================================
+-- 3. MATCH Y SEGUIMIENTO
+-- ============================================
+
+-- Match: se crea cuando el cliente acepta un trabajador
+CREATE TABLE job_matches (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_post_id UUID UNIQUE NOT NULL REFERENCES job_posts(id) ON DELETE CASCADE,
+  worker_id UUID NOT NULL REFERENCES worker_profiles(id) ON DELETE CASCADE,
+  application_id UUID NOT NULL REFERENCES applications(id),
+  agreed_price NUMERIC(10,2),
+  status TEXT NOT NULL DEFAULT 'accepted'
+    CHECK (status IN ('accepted', 'on_the_way', 'in_progress', 'finished')),
+  matched_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  finished_at TIMESTAMPTZ
+);
+
+-- ============================================
+-- 4. CHAT
+-- ============================================
+
+-- Mensajes entre cliente y trabajador (vinculado a postulación)
+CREATE TABLE messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  application_id UUID NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+  sender_id UUID NOT NULL REFERENCES auth.users(id),
+  content TEXT NOT NULL,
+  sent_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ============================================
+-- 5. RESEÑAS
+-- ============================================
+
+-- Reseñas bidireccionales (cada match genera 2)
+CREATE TABLE reviews (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_match_id UUID NOT NULL REFERENCES job_matches(id) ON DELETE CASCADE,
+  reviewer_id UUID NOT NULL REFERENCES auth.users(id),
+  reviewed_id UUID NOT NULL REFERENCES auth.users(id),
+  rating INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  comment TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(job_match_id, reviewer_id)
+);
+
+-- ============================================
+-- 6. SUSCRIPCIONES
+-- ============================================
+
+CREATE TABLE subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  worker_id UUID UNIQUE NOT NULL REFERENCES worker_profiles(id) ON DELETE CASCADE,
+  plan TEXT NOT NULL DEFAULT 'basic' CHECK (plan IN ('basic', 'premium')),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'cancelled', 'expired')),
+  culqi_subscription_id TEXT,
+  current_period_start TIMESTAMPTZ,
+  current_period_end TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ============================================
+-- 7. NOTIFICACIONES
+-- ============================================
+
+CREATE TABLE notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  type TEXT NOT NULL CHECK (type IN ('new_application', 'job_finished', 'new_message', 'match_accepted', 'review_pending')),
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  read BOOLEAN NOT NULL DEFAULT false,
+  reference_id UUID,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ============================================
+-- 8. ÍNDICES
+-- ============================================
+
+-- Geolocalización
+CREATE INDEX idx_job_posts_location ON job_posts USING GIST (location);
+CREATE INDEX idx_worker_profiles_location ON worker_profiles USING GIST (location);
+
+-- Búsquedas frecuentes
+CREATE INDEX idx_job_posts_status ON job_posts(status);
+CREATE INDEX idx_job_posts_client ON job_posts(client_id);
+CREATE INDEX idx_job_posts_category ON job_posts(category_id);
+CREATE INDEX idx_applications_job ON applications(job_post_id);
+CREATE INDEX idx_applications_worker ON applications(worker_id);
+CREATE INDEX idx_messages_application ON messages(application_id);
+CREATE INDEX idx_notifications_user ON notifications(user_id, read);
+CREATE INDEX idx_reviews_reviewed ON reviews(reviewed_id);
+CREATE INDEX idx_worker_specialties_worker ON worker_specialties(worker_id);
+CREATE INDEX idx_worker_specialties_category ON worker_specialties(category_id);
+
+-- ============================================
+-- 9. FUNCIONES ÚTILES
+-- ============================================
+
+-- Buscar trabajos cercanos al trabajador (distancia en km)
+CREATE OR REPLACE FUNCTION get_nearby_jobs(
+  worker_location GEOGRAPHY,
+  radius_km INT DEFAULT 5,
+  worker_category_ids INT[] DEFAULT NULL
+)
+RETURNS TABLE (
+  job_id UUID,
+  title TEXT,
+  description TEXT,
+  category_name TEXT,
+  district TEXT,
+  distance_km NUMERIC,
+  created_at TIMESTAMPTZ,
+  client_name TEXT,
+  client_rating NUMERIC,
+  applicant_count BIGINT
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    jp.id AS job_id,
+    jp.title,
+    jp.description,
+    c.name AS category_name,
+    jp.district,
+    ROUND((ST_Distance(jp.location, worker_location) / 1000)::NUMERIC, 1) AS distance_km,
+    jp.created_at,
+    cp.full_name AS client_name,
+    cp.id::TEXT AS client_rating,
+    (SELECT COUNT(*) FROM applications a WHERE a.job_post_id = jp.id) AS applicant_count
+  FROM job_posts jp
+  JOIN categories c ON c.id = jp.category_id
+  JOIN client_profiles cp ON cp.id = jp.client_id
+  WHERE jp.status = 'active'
+    AND ST_DWithin(jp.location, worker_location, radius_km * 1000)
+    AND (worker_category_ids IS NULL OR jp.category_id = ANY(worker_category_ids))
+  ORDER BY jp.created_at DESC;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Actualizar rating promedio del trabajador después de una reseña
+CREATE OR REPLACE FUNCTION update_worker_rating()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE worker_profiles
+  SET
+    avg_rating = (
+      SELECT ROUND(AVG(rating)::NUMERIC, 1)
+      FROM reviews
+      WHERE reviewed_id = NEW.reviewed_id
+    ),
+    total_reviews = (
+      SELECT COUNT(*)
+      FROM reviews
+      WHERE reviewed_id = NEW.reviewed_id
+    )
+  WHERE id = NEW.reviewed_id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_worker_rating
+AFTER INSERT ON reviews
+FOR EACH ROW
+EXECUTE FUNCTION update_worker_rating();
+
+-- Actualizar updated_at en job_posts
+CREATE OR REPLACE FUNCTION update_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_job_posts_updated
+BEFORE UPDATE ON job_posts
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at();
+
+-- ============================================
+-- 10. ROW LEVEL SECURITY (RLS)
+-- ============================================
+
+ALTER TABLE client_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE worker_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE job_posts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE job_attachments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE applications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE job_matches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+
+-- Client profiles: cada uno ve y edita solo el suyo
+CREATE POLICY "client_own_profile" ON client_profiles
+  FOR ALL USING (auth.uid() = id);
+
+-- Worker profiles: todos pueden ver, solo el dueño edita
+CREATE POLICY "worker_profile_read" ON worker_profiles
+  FOR SELECT USING (true);
+CREATE POLICY "worker_profile_write" ON worker_profiles
+  FOR ALL USING (auth.uid() = id);
+
+-- Job posts: clientes ven los suyos, trabajadores ven los activos
+CREATE POLICY "client_own_jobs" ON job_posts
+  FOR ALL USING (auth.uid() = client_id);
+CREATE POLICY "worker_see_active_jobs" ON job_posts
+  FOR SELECT USING (status = 'active');
+
+-- Attachments: visibles si puedes ver el job_post
+CREATE POLICY "attachments_read" ON job_attachments
+  FOR SELECT USING (true);
+CREATE POLICY "attachments_write" ON job_attachments
+  FOR INSERT WITH CHECK (
+    EXISTS (SELECT 1 FROM job_posts WHERE id = job_post_id AND client_id = auth.uid())
+  );
+
+-- Applications: trabajador ve las suyas, cliente ve las de sus publicaciones
+CREATE POLICY "worker_own_applications" ON applications
+  FOR ALL USING (auth.uid() = worker_id);
+CREATE POLICY "client_see_applications" ON applications
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM job_posts WHERE id = job_post_id AND client_id = auth.uid())
+  );
+
+-- Messages: solo los participantes del chat
+CREATE POLICY "message_participants" ON messages
+  FOR ALL USING (
+    auth.uid() = sender_id
+    OR EXISTS (
+      SELECT 1 FROM applications a
+      WHERE a.id = application_id
+      AND (a.worker_id = auth.uid()
+        OR EXISTS (SELECT 1 FROM job_posts jp WHERE jp.id = a.job_post_id AND jp.client_id = auth.uid()))
+    )
+  );
+
+-- Reviews: todos pueden leer, solo el reviewer escribe
+CREATE POLICY "reviews_read" ON reviews FOR SELECT USING (true);
+CREATE POLICY "reviews_write" ON reviews FOR INSERT WITH CHECK (auth.uid() = reviewer_id);
+
+-- Subscriptions: solo el trabajador ve la suya
+CREATE POLICY "own_subscription" ON subscriptions
+  FOR ALL USING (auth.uid() = worker_id);
+
+-- Notifications: solo el usuario ve las suyas
+CREATE POLICY "own_notifications" ON notifications
+  FOR ALL USING (auth.uid() = user_id);
+
+-- Categories: lectura pública
+ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "categories_read" ON categories FOR SELECT USING (true);
+
+-- Worker specialties: lectura pública, escritura del dueño
+ALTER TABLE worker_specialties ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "specialties_read" ON worker_specialties FOR SELECT USING (true);
+CREATE POLICY "specialties_write" ON worker_specialties
+  FOR ALL USING (auth.uid() = worker_id);
+
+-- Worker tags: lectura pública, escritura del dueño
+ALTER TABLE worker_tags ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "tags_read" ON worker_tags FOR SELECT USING (true);
+CREATE POLICY "tags_write" ON worker_tags
+  FOR ALL USING (auth.uid() = worker_id);
+
+-- ============================================
+-- 11. REALTIME (habilitar para chat y notificaciones)
+-- ============================================
+
+ALTER PUBLICATION supabase_realtime ADD TABLE messages;
+ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
