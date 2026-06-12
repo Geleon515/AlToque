@@ -458,30 +458,51 @@ export default function RegisterWorkerPage() {
         if (tagsError) throw tagsError
       }
 
-      // Subir documentos a Storage
-      const uploads: Promise<unknown>[] = []
+      // Subir documentos a Storage y guardar paths en worker_profiles
+      const docPaths: {
+        dni_doc_path?: string
+        antecedentes_doc_path?: string
+        certificados_doc_paths?: string[]
+      } = {}
+
       if (dniFiles[0]) {
-        uploads.push(
-          supabase.storage
-            .from('worker-documents')
-            .upload(`${uid}/dni_${Date.now()}`, dniFiles[0], { upsert: true }),
-        )
+        const path = `${uid}/dni_${Date.now()}`
+        const { error: uploadErr } = await supabase.storage
+          .from('worker-documents')
+          .upload(path, dniFiles[0], { upsert: true })
+        if (uploadErr) throw uploadErr
+        docPaths.dni_doc_path = path
       }
+
       if (antecedentesFiles[0]) {
-        uploads.push(
-          supabase.storage
-            .from('worker-documents')
-            .upload(`${uid}/antecedentes_${Date.now()}`, antecedentesFiles[0], { upsert: true }),
-        )
+        const path = `${uid}/antecedentes_${Date.now()}`
+        const { error: uploadErr } = await supabase.storage
+          .from('worker-documents')
+          .upload(path, antecedentesFiles[0], { upsert: true })
+        if (uploadErr) throw uploadErr
+        docPaths.antecedentes_doc_path = path
       }
-      certificadoFiles.forEach((f, i) => {
-        uploads.push(
-          supabase.storage
+
+      if (certificadoFiles.length > 0) {
+        const certPaths: string[] = []
+        for (let i = 0; i < certificadoFiles.length; i++) {
+          const path = `${uid}/certificado_${i}_${Date.now()}`
+          const { error: uploadErr } = await supabase.storage
             .from('worker-documents')
-            .upload(`${uid}/certificado_${i}_${Date.now()}`, f, { upsert: true }),
-        )
-      })
-      await Promise.all(uploads)
+            .upload(path, certificadoFiles[i], { upsert: true })
+          if (uploadErr) throw uploadErr
+          certPaths.push(path)
+        }
+        docPaths.certificados_doc_paths = certPaths
+      }
+
+      if (Object.keys(docPaths).length > 0) {
+        const { error: pathsError } = await supabase
+          .from('worker_profiles')
+          .update(docPaths)
+          .eq('id', uid)
+        if (pathsError) throw pathsError
+      }
 
       showToast('¡Perfil activado! Ya puedes ver trabajos en tu zona.', 'success')
       navigate('/worker/dashboard')
