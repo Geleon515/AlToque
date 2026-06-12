@@ -1,12 +1,14 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import ProtectedRoute from './ProtectedRoute'
+import AppLayout from '../components/layout/AppLayout'
 import LandingPage from '../pages/landing/LandingPage'
 import LoginPage from '../pages/auth/LoginPage'
 import RegisterPage from '../pages/auth/RegisterPage'
 import RegisterClientPage from '../pages/auth/RegisterClientPage'
 import RegisterWorkerPage from '../pages/auth/RegisterWorkerPage'
-import ClientDashboard from '../pages/client/ClientDashboard'
-import WorkerDashboard from '../pages/worker/WorkerDashboard'
+import ClientDashboardPage from '../pages/client/ClientDashboardPage'
+import WorkerDashboardPage from '../pages/worker/WorkerDashboardPage'
+import PlaceholderPage from '../pages/PlaceholderPage'
 
 export const router = createBrowserRouter([
   { path: '/', element: <LandingPage /> },
@@ -15,20 +17,30 @@ export const router = createBrowserRouter([
   { path: '/register/client', element: <RegisterClientPage /> },
   { path: '/register/worker', element: <RegisterWorkerPage /> },
   {
-    path: '/client/*',
+    path: '/client',
     element: (
       <ProtectedRoute requiredRole="client">
-        <ClientDashboard />
+        <AppLayout role="client" />
       </ProtectedRoute>
     ),
+    children: [
+      { index: true, element: <Navigate to="dashboard" replace /> },
+      { path: 'dashboard', element: <ClientDashboardPage /> },
+      { path: '*', element: <PlaceholderPage /> },
+    ],
   },
   {
-    path: '/worker/*',
+    path: '/worker',
     element: (
       <ProtectedRoute requiredRole="worker">
-        <WorkerDashboard />
+        <AppLayout role="worker" />
       </ProtectedRoute>
     ),
+    children: [
+      { index: true, element: <Navigate to="dashboard" replace /> },
+      { path: 'dashboard', element: <WorkerDashboardPage /> },
+      { path: '*', element: <PlaceholderPage /> },
+    ],
   },
   { path: '*', element: <Navigate to="/" replace /> },
 ])
