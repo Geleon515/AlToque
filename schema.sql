@@ -430,3 +430,13 @@ CREATE POLICY "avatars_update_own" ON storage.objects
 
 CREATE POLICY "avatars_read_public" ON storage.objects
   FOR SELECT USING (bucket_id = 'avatars');
+
+-- Políticas para job-attachments (bucket público)
+-- Nota: los archivos se guardan en la ruta jobs/{client_id}/{job_id}/..., por eso
+-- la subida no valida carpeta (eso lo controla el RLS de la tabla job_attachments).
+CREATE POLICY "job_attachments_upload" ON storage.objects
+  FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'job-attachments');
+
+CREATE POLICY "job_attachments_read_public" ON storage.objects
+  FOR SELECT USING (bucket_id = 'job-attachments');

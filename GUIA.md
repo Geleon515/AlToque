@@ -10,6 +10,9 @@
 | Hook de sesión | `useAuth()` en `src/hooks/useAuth.ts` |
 | Tipos TypeScript | `src/lib/types.ts` |
 | Cliente Supabase | `src/lib/supabase.ts` |
+| Módulo del cliente (Persona 2) | `ClientDashboardPage`, `NewJobPage`, `ClientJobsPage`, `ClientProfilePage`, `ClientJobDetailPage` |
+
+> El módulo del cliente está completo: dashboard, publicar trabajo (3 pasos con mapa y carga de fotos/videos), mis publicaciones, perfil y detalle de publicación. Las Personas 3, 4 y 5 ya pueden apoyarse en estas pantallas.
 
 ---
 
@@ -141,6 +144,8 @@ Lo mismo aplica para `notifications` filtrando por `user_id=eq.${user.id}`.
 | `worker-documents` | Privado | DNI, antecedentes y certificados del trabajador |
 
 > Los 3 buckets deben existir en Supabase > Storage. Si no están creados, pedirle a Gerardo que los cree.
+> Las políticas de subida (INSERT) ya están configuradas para `avatars` y `job-attachments`,
+> así que la carga de fotos/videos en publicaciones ya funciona.
 
 ```ts
 // Subir/actualizar foto de perfil (bucket público)
@@ -189,7 +194,12 @@ Usar **solo Tailwind CSS**. Sin CSS modules ni styled-components.
 
 | Persona | Rutas a crear | Tabla principal |
 |---|---|---|
-| 2 — Cliente (publicación) | `/client/new-job`, `/client/jobs`, `/client/profile` | `job_posts`, `job_attachments` |
-| 3 — Candidatos + Match | `/client/candidates`, dentro del detalle de job | `applications`, `job_matches`, `reviews` |
+| 2 — Cliente (publicación) | `/client/new-job`, `/client/jobs`, `/client/jobs/:id`, `/client/profile` | `job_posts`, `job_attachments` |
+| 3 — Candidatos + Match | Dentro de `ClientJobDetailPage` (`/client/jobs/:id`) | `applications`, `job_matches`, `reviews` |
 | 4 — Trabajador (feed) | `/worker/jobs`, `/worker/tracking`, `/worker/profile` | `job_posts` (RPC), `job_matches` |
 | 5 — Chat + Notificaciones | `/worker/messages`, `/client/messages`, `/worker/subscription` | `messages`, `notifications`, `subscriptions` |
+
+> **Nota para la Persona 3:** la pantalla de detalle (`ClientJobDetailPage`) ya muestra la lista
+> de candidatos postulantes con su nombre, foto, verificación y rating. Falta agregar ahí el botón
+> de **aceptar / hacer match** (crear el registro en `job_matches`). El botón "Ver mensaje" de cada
+> candidato ya navega a `/client/messages?application=<id>` para que la Persona 5 lo conecte al chat.

@@ -10,6 +10,7 @@ import ClientDashboardPage from '../pages/client/ClientDashboardPage'
 import ClientProfilePage from '../pages/client/ClientProfilePage'
 import NewJobPage from '../pages/client/NewJobPage'
 import ClientJobsPage from '../pages/client/ClientJobsPage'
+import ClientJobDetailPage from '../pages/client/ClientJobDetailPage'
 import WorkerDashboardPage from '../pages/worker/WorkerDashboardPage'
 import PlaceholderPage from '../pages/PlaceholderPage'
 
@@ -32,6 +33,7 @@ export const router = createBrowserRouter([
       { path: 'profile', element: <ClientProfilePage /> },
       { path: 'new-job', element: <NewJobPage /> },
       { path: 'jobs', element: <ClientJobsPage /> },
+      { path: 'jobs/:id', element: <ClientJobDetailPage /> },
       { path: '*', element: <PlaceholderPage /> },
     ],
   },
