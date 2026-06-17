@@ -90,7 +90,7 @@ const { data } = await supabase.rpc('get_nearby_jobs', {
   worker_category_ids: [1, 2],  // null = todas las categorías
 })
 // Retorna: job_id, title, description, category_name, district,
-//          distance_km, client_name, applicant_count
+//          distance_km, created_at, client_name, client_rating, applicant_count
 ```
 
 ### `check_daily_application_limit` — validar límite de postulaciones
@@ -100,6 +100,12 @@ const { data: canApply } = await supabase.rpc('check_daily_application_limit', {
 })
 // Retorna true si puede postular hoy (2 básico / 5 premium)
 ```
+
+### Funciones automáticas (cron) — no se llaman desde el frontend
+- `expand_job_radius()` — expande el radio de los trabajos sin postulantes (5 → 10 → 20 km) tras
+  30 min de espera. Corre sola cada 5 min con pg_cron.
+- `insert_default_reviews()` — *(pendiente, depende del flujo de match + reseñas de la Persona 3)*
+  insertará reseña 5★ automática tras 48h sin calificar.
 
 ---
 
