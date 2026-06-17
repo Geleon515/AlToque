@@ -130,6 +130,8 @@ CREATE TABLE job_matches (
   agreed_price NUMERIC(10,2),
   status TEXT NOT NULL DEFAULT 'accepted'
     CHECK (status IN ('accepted', 'on_the_way', 'in_progress', 'finished')),
+  scheduled_date TIMESTAMPTZ,
+  worker_notes TEXT,
   matched_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   finished_at TIMESTAMPTZ
 );
@@ -373,6 +375,21 @@ CREATE TRIGGER trigger_job_posts_updated
 BEFORE UPDATE ON job_posts
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at();
+
+-- Expandir el radio de los trabajos activos sin postulantes (5 → 10 → 20 km)
+-- Solo expande si pasaron 30 min desde el último cambio (updated_at) y no hay postulaciones.
+-- Pensada para correr con pg_cron cada 5 min. SECURITY DEFINER para saltar RLS (tarea de mantenimiento).
+CREATE OR REPLACE FUNCTION expand_job_radius()
+RETURNS void AS $$
+BEGIN
+  UPDATE job_posts jp
+  SET current_radius_km = CASE WHEN jp.current_radius_km < 10 THEN 10 ELSE 20 END
+  WHERE jp.status = 'active'
+    AND jp.current_radius_km < 20
+    AND jp.updated_at < now() - INTERVAL '30 minutes'
+    AND NOT EXISTS (SELECT 1 FROM applications a WHERE a.job_post_id = jp.id);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================
 -- 10. ROW LEVEL SECURITY (RLS)
