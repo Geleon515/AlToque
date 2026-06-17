@@ -246,7 +246,7 @@ BEGIN
     ROUND((ST_Distance(jp.location, worker_location) / 1000)::NUMERIC, 1) AS distance_km,
     jp.created_at,
     cp.full_name AS client_name,
-    cp.id::TEXT AS client_rating,
+    cp.avg_rating AS client_rating,
     (SELECT COUNT(*) FROM applications a WHERE a.job_post_id = jp.id) AS applicant_count
   FROM job_posts jp
   JOIN categories c ON c.id = jp.category_id
@@ -255,6 +255,38 @@ BEGIN
     AND ST_DWithin(jp.location, worker_location, radius_km * 1000)
     AND (worker_category_ids IS NULL OR jp.category_id = ANY(worker_category_ids))
   ORDER BY jp.created_at DESC;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Validar si el trabajador puede postular hoy (2 básico / 5 premium)
+-- Cuenta las postulaciones del día (hora de Lima) y las compara con el límite del plan
+CREATE OR REPLACE FUNCTION check_daily_application_limit(worker_id UUID)
+RETURNS BOOLEAN AS $$
+DECLARE
+  worker_plan TEXT;
+  daily_limit INT;
+  today_count INT;
+BEGIN
+  -- Plan activo del trabajador (si no tiene suscripción, se asume 'basic')
+  SELECT plan INTO worker_plan
+  FROM subscriptions s
+  WHERE s.worker_id = check_daily_application_limit.worker_id
+    AND s.status = 'active'
+  LIMIT 1;
+
+  IF worker_plan = 'premium' THEN
+    daily_limit := 5;
+  ELSE
+    daily_limit := 2;
+  END IF;
+
+  -- Postulaciones hechas hoy (día calendario de Lima)
+  SELECT COUNT(*) INTO today_count
+  FROM applications a
+  WHERE a.worker_id = check_daily_application_limit.worker_id
+    AND (a.applied_at AT TIME ZONE 'America/Lima') >= date_trunc('day', now() AT TIME ZONE 'America/Lima');
+
+  RETURN today_count < daily_limit;
 END;
 $$ LANGUAGE plpgsql;
 
