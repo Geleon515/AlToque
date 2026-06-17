@@ -8,6 +8,8 @@ import RegisterClientPage from '../pages/auth/RegisterClientPage'
 import RegisterWorkerPage from '../pages/auth/RegisterWorkerPage'
 import ClientDashboardPage from '../pages/client/ClientDashboardPage'
 import ClientProfilePage from '../pages/client/ClientProfilePage'
+import NewJobPage from '../pages/client/NewJobPage'
+import ClientJobsPage from '../pages/client/ClientJobsPage'
 import WorkerDashboardPage from '../pages/worker/WorkerDashboardPage'
 import PlaceholderPage from '../pages/PlaceholderPage'
 
@@ -28,6 +30,8 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="dashboard" replace /> },
       { path: 'dashboard', element: <ClientDashboardPage /> },
       { path: 'profile', element: <ClientProfilePage /> },
+      { path: 'new-job', element: <NewJobPage /> },
+      { path: 'jobs', element: <ClientJobsPage /> },
       { path: '*', element: <PlaceholderPage /> },
     ],
   },
