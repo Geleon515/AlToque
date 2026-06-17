@@ -5,3 +5,23 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Forzar cursor de manito (pointer) en elementos interactivos */
+button,
+a,
+select,
+label,
+input[type="button"],
+input[type="submit"],
+input[type="file"],
+[role="button"] {
+  cursor: pointer;
+}
+
+/* Cursor no permitido para elementos deshabilitados */
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+}
