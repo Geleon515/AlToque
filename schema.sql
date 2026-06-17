@@ -18,6 +18,9 @@ CREATE TABLE client_profiles (
   province TEXT NOT NULL DEFAULT 'Callao',
   district TEXT NOT NULL,
   address TEXT,
+  avg_rating NUMERIC(2,1) NOT NULL DEFAULT 0,
+  total_reviews INT NOT NULL DEFAULT 0,
+  jobs_posted INT NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
