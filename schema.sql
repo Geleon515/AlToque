@@ -284,6 +284,50 @@ AFTER INSERT ON reviews
 FOR EACH ROW
 EXECUTE FUNCTION update_worker_rating();
 
+-- Actualizar rating promedio del cliente después de una reseña
+-- (se dispara junto con el trigger del trabajador; solo afecta la fila que coincide,
+--  porque reviewed_id apunta a un cliente O a un trabajador, no a ambos)
+CREATE OR REPLACE FUNCTION update_client_rating()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE client_profiles
+  SET
+    avg_rating = (
+      SELECT COALESCE(ROUND(AVG(rating)::NUMERIC, 1), 0)
+      FROM reviews
+      WHERE reviewed_id = NEW.reviewed_id
+    ),
+    total_reviews = (
+      SELECT COUNT(*)
+      FROM reviews
+      WHERE reviewed_id = NEW.reviewed_id
+    )
+  WHERE id = NEW.reviewed_id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_client_rating
+AFTER INSERT ON reviews
+FOR EACH ROW
+EXECUTE FUNCTION update_client_rating();
+
+-- Mantener jobs_posted del cliente (+1 por cada publicación creada)
+CREATE OR REPLACE FUNCTION increment_jobs_posted()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE client_profiles
+  SET jobs_posted = jobs_posted + 1
+  WHERE id = NEW.client_id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_increment_jobs_posted
+AFTER INSERT ON job_posts
+FOR EACH ROW
+EXECUTE FUNCTION increment_jobs_posted();
+
 -- Actualizar updated_at en job_posts
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
