@@ -40,6 +40,7 @@ export default function ClientJobsPage() {
   const [loading, setLoading] = useState(true)
   const [jobs, setJobs] = useState<JobPost[]>([])
   const [showSuccessBanner, setShowSuccessBanner] = useState(false)
+  const [confirmingJobId, setConfirmingJobId] = useState<string | null>(null)
 
   // Detectar el parámetro de éxito en la URL
   useEffect(() => {
@@ -293,7 +294,7 @@ export default function ClientJobsPage() {
                       <div className="flex items-center gap-3 w-full sm:w-auto">
                         <Button
                           variant="outline"
-                          onClick={() => handleFinishJob(job.id)}
+                          onClick={() => setConfirmingJobId(job.id)}
                           className="flex-1 sm:flex-none py-2 px-4 border-[#EF4444]/40 text-[#EF4444] hover:bg-red-50 hover:text-red-600 flex items-center justify-center gap-1.5"
                         >
                           <XCircle size={16} />
@@ -327,6 +328,36 @@ export default function ClientJobsPage() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Modal de confirmación para finalizar trabajo */}
+      {confirmingJobId && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <h3 className="font-bold text-lg text-[#1A1A2E] mb-2">¿Finalizar trabajo?</h3>
+            <p className="text-sm text-[#6B7280] mb-6 leading-relaxed">
+              ¿Estás seguro de que deseas marcar este trabajo como finalizado? Esta acción es definitiva y la publicación se cerrará para nuevos postulantes.
+            </p>
+            <div className="flex items-center justify-end gap-3">
+              <Button
+                variant="ghost"
+                onClick={() => setConfirmingJobId(null)}
+                className="px-4 py-2"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={async () => {
+                  await handleFinishJob(confirmingJobId)
+                  setConfirmingJobId(null)
+                }}
+                className="bg-[#EF4444] hover:bg-red-700 text-white px-4 py-2 border-none"
+              >
+                Sí, finalizar
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

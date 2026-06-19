@@ -261,7 +261,28 @@ export default function ClientDashboardPage() {
                     {/* Fila inferior: Postulantes y Detalle */}
                     <div className="border-t border-[#F1F5F9] pt-3 flex justify-between items-center mt-2">
                       <div className="flex items-center gap-1.5">
-                        {applicantCount > 0 ? (
+                        {job.status === 'finished' ? (
+                          <>
+                            <span className="w-2 h-2 rounded-full bg-gray-400 shrink-0" />
+                            <span className="text-xs font-semibold text-gray-500">
+                              Finalizado
+                            </span>
+                          </>
+                        ) : job.status === 'cancelled' ? (
+                          <>
+                            <span className="w-2 h-2 rounded-full bg-red-400 shrink-0" />
+                            <span className="text-xs font-semibold text-red-500">
+                              Cancelado
+                            </span>
+                          </>
+                        ) : job.status === 'matched' ? (
+                          <>
+                            <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                            <span className="text-xs font-semibold text-blue-600">
+                              En proceso
+                            </span>
+                          </>
+                        ) : applicantCount > 0 ? (
                           <>
                             <Users size={16} className="text-[#0D7B6B]" />
                             <span className="text-xs font-semibold text-[#0D7B6B]">
@@ -270,7 +291,7 @@ export default function ClientDashboardPage() {
                           </>
                         ) : (
                           <>
-                            <Search size={16} className="text-amber-500 animate-pulse" />
+                            <Search size={16} className="text-amber-500 animate-pulse shrink-0" />
                             <span className="text-xs font-medium text-amber-600">Buscando...</span>
                           </>
                         )}
