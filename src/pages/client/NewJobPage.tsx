@@ -695,7 +695,7 @@ export default function NewJobPage() {
                   </span>
                 </div>
                 
-                <div className="border border-[#E5E7EB] rounded-2xl overflow-hidden shadow-inner bg-gray-100 aspect-[4/3] relative">
+                <div className="border border-[#E5E7EB] rounded-2xl overflow-hidden shadow-inner bg-gray-100 w-full h-[250px] md:h-[350px] relative">
                   {/* Contenedor Mapbox */}
                   {mapboxToken ? (
                     <div ref={mapContainerRef} className="w-full h-full" />
