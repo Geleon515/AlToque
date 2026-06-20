@@ -256,9 +256,9 @@ BEGIN
   WHERE jp.status = 'active'
     AND ST_DWithin(jp.location, worker_location, radius_km * 1000)
     AND (worker_category_ids IS NULL OR jp.category_id = ANY(worker_category_ids))
-  ORDER BY jp.created_at DESC;
+  ORDER BY distance_km ASC, jp.created_at DESC;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
 
 -- Validar si el trabajador puede postular hoy (2 básico / 5 premium)
 -- Cuenta las postulaciones del día (hora de Lima) y las compara con el límite del plan

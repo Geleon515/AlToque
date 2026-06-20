@@ -77,42 +77,28 @@ export default function WorkerDashboardPage() {
   const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN || ''
 
   useEffect(() => {
-    // 1. Intentar obtener ubicación del navegador
-    if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setCoordinates({
-            lng: position.coords.longitude,
-            lat: position.coords.latitude
-          })
-          fetchNearbyJobs(position.coords.longitude, position.coords.latitude, radius)
-        },
-        (error) => {
-          console.warn("Geolocalización denegada o falló, usando defecto Callao:", error)
-          // Fallback a WKT guardado en perfil o Callao por defecto
-          if (workerProfile?.location) {
-            // workerProfile.location = POINT(-77.xxx -12.yyy)
-            const match = workerProfile.location.match(/POINT\(([^ ]+) ([^)]+)\)/)
-            if (match) {
-              const lng = parseFloat(match[1])
-              const lat = parseFloat(match[2])
-              setCoordinates({ lng, lat })
-              fetchNearbyJobs(lng, lat, radius)
-              return
-            }
-          }
-          fetchNearbyJobs(coordinates.lng, coordinates.lat, radius)
-        },
-        { enableHighAccuracy: true, timeout: 5000 }
-      )
+    // Usar la ubicación FIJA que el trabajador guardó en su registro (su zona de cobertura).
+    // Es estable, a diferencia del GPS del navegador, que en PC salta entre distritos por IP/WiFi.
+    if (workerProfile?.location) {
+      // workerProfile.location = POINT(-77.xxx -12.yyy)  (longitud primero)
+      const match = workerProfile.location.match(/POINT\(([^ ]+) ([^)]+)\)/)
+      if (match) {
+        const lng = parseFloat(match[1])
+        const lat = parseFloat(match[2])
+        setCoordinates({ lng, lat })
+        fetchNearbyJobs(lng, lat, radius)
+      } else {
+        fetchNearbyJobs(coordinates.lng, coordinates.lat, radius)
+      }
     } else {
+      // Sin ubicación guardada: usar el Callao por defecto
       fetchNearbyJobs(coordinates.lng, coordinates.lat, radius)
     }
-    
+
     if (user) {
       fetchStats()
     }
-  }, [user, radius])
+  }, [workerProfile?.location, user?.id, radius])
 
   const fetchStats = async () => {
     if (!user) return
@@ -207,7 +193,9 @@ export default function WorkerDashboardPage() {
       if (error) throw error
 
       if (data && data.length > 0) {
-        setJobs(data)
+        // Ordenar por distancia: primero los trabajos más cercanos al trabajador
+        const sortedJobs = [...data].sort((a: NearbyJob, b: NearbyJob) => a.distance_km - b.distance_km)
+        setJobs(sortedJobs)
       } else {
         // Fallback: Si el RPC falla o está vacío (posible error en backend), traemos los trabajos activos
         const { data: fallbackData, error: fallbackError } = await supabase
@@ -288,7 +276,7 @@ export default function WorkerDashboardPage() {
         </div>
         {maxApplications === 2 && (
         <Button onClick={() => navigate('/worker/subscription')} variant="outline" className="w-full text-xs py-1.5 bg-transparent border-white/30 hover:bg-white/10 text-white">
-          Mejorar a Premium ($4.99/mes)
+          Mejorar a Premium (S/15/mes)
         </Button>
         )}
       </div>
