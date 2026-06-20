@@ -134,7 +134,7 @@ export default function LoginPage() {
         {/* Columna izquierda — ilustración */}
         <div className="hidden lg:flex flex-1 bg-[#E8F5F3] items-center justify-center p-12">
           <img
-            src="https://placehold.co/600x800/e8f5f3/0D7B6B?text=AlToque"
+            src="https://vklwagysmthhsfsxoyjo.supabase.co/storage/v1/object/public/Imagenes-web/Login.png"
             alt="Trabajadores técnicos"
             className="rounded-2xl max-h-[600px] object-cover shadow-lg"
           />
