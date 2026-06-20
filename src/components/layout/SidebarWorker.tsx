@@ -63,8 +63,12 @@ export default function SidebarWorker({ onNavigate }: Props) {
     <div className="flex flex-col h-full">
       <div className="p-4 border-b border-[#E5E7EB]">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#E8F5F3] flex items-center justify-center text-[#0D7B6B] font-bold text-sm shrink-0">
-            {initial || '?'}
+          <div className="w-10 h-10 rounded-full bg-[#E8F5F3] flex items-center justify-center text-[#0D7B6B] font-bold text-sm shrink-0 overflow-hidden">
+            {workerProfile?.avatar_url ? (
+              <img src={workerProfile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+              initial || '?'
+            )}
           </div>
           <div className="min-w-0">
             <p className="text-sm font-bold text-[#1A1A2E] truncate">Panel de Control</p>
