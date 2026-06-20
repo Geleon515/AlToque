@@ -410,6 +410,30 @@ ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "client_own_profile" ON client_profiles
   FOR ALL USING (auth.uid() = id);
 
+-- El trabajador necesita ver el perfil del cliente al abrir el detalle de un
+-- trabajo (nombre, rating, distrito, etc.). La política de arriba solo deja que
+-- el propio cliente se vea a sí mismo, por lo que el join client_profiles(*)
+-- devolvía 0 filas y el detalle salía vacío. Esta política permite leer el
+-- perfil de un cliente cuando hay una relación legítima: tiene un trabajo
+-- activo, o el trabajador ya postuló a alguno de sus trabajos.
+-- Nota (RNF-08): expone toda la fila, incluido phone. En el MVP el teléfono se
+-- oculta en el frontend hasta el match; la restricción por columna queda pendiente.
+CREATE POLICY "worker_see_related_client" ON client_profiles
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM job_posts jp
+      WHERE jp.client_id = client_profiles.id
+        AND (
+          jp.status = 'active'
+          OR EXISTS (
+            SELECT 1 FROM applications a
+            WHERE a.job_post_id = jp.id
+              AND a.worker_id = auth.uid()
+          )
+        )
+    )
+  );
+
 -- Worker profiles: todos pueden ver, solo el dueño edita
 CREATE POLICY "worker_profile_read" ON worker_profiles
   FOR SELECT USING (true);
