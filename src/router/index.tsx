@@ -12,6 +12,7 @@ import NewJobPage from '../pages/client/NewJobPage'
 import ClientJobsPage from '../pages/client/ClientJobsPage'
 import ClientJobDetailPage from '../pages/client/ClientJobDetailPage'
 import WorkerDashboardPage from '../pages/worker/WorkerDashboardPage'
+import WorkerJobsPage from '../pages/worker/WorkerJobsPage'
 import WorkerJobDetailPage from '../pages/worker/WorkerJobDetailPage'
 import WorkerTrackingPage from '../pages/worker/WorkerTrackingPage'
 import WorkerProfilePage from '../pages/worker/WorkerProfilePage'
@@ -52,6 +53,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="dashboard" replace /> },
       { path: 'dashboard', element: <WorkerDashboardPage /> },
+      { path: 'jobs', element: <WorkerJobsPage /> },
       { path: 'jobs/:id', element: <WorkerJobDetailPage /> },
       { path: 'tracking', element: <WorkerTrackingPage /> },
       { path: 'profile', element: <WorkerProfilePage /> },
