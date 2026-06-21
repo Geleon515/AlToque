@@ -360,7 +360,9 @@ export default function ClientDashboardPage() {
                           </span>
                         </div>
                         <p className="text-xs text-[#6B7280] truncate leading-normal">
-                          {msg.content}
+                          {msg.content?.includes('"type":"proposal"') 
+                            ? "Ha enviado una propuesta de acuerdo." 
+                            : msg.content}
                         </p>
                       </div>
                     </div>
