@@ -13,6 +13,20 @@ import {
 } from 'lucide-react'
 import Button from '../../components/ui/Button'
 
+function parseLocation(hex: string): { lng: number, lat: number } | null {
+  if (!hex || hex.length < 50) return null;
+  try {
+    const dataHex = hex.substring(18);
+    const bytes = new Uint8Array(dataHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+    const view = new DataView(bytes.buffer);
+    const lng = view.getFloat64(0, true);
+    const lat = view.getFloat64(8, true);
+    return { lng, lat };
+  } catch(e) {
+    return null;
+  }
+}
+
 export default function WorkerDashboardPage() {
   const navigate = useNavigate()
   const { user, workerProfile } = useAuth()
@@ -26,7 +40,12 @@ export default function WorkerDashboardPage() {
 
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
+  const workerMarkerRef = useRef<any>(null)
+  const markersRef = useRef<any[]>([])
   const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN || ''
+
+  const [mapLoaded, setMapLoaded] = useState(false)
+  const [activeJobs, setActiveJobs] = useState<{id:string, lat:number, lng:number, title:string}[]>([])
 
   useEffect(() => {
     if (workerProfile?.location) {
@@ -38,8 +57,25 @@ export default function WorkerDashboardPage() {
 
     if (user) {
       fetchStats()
+      fetchJobLocations()
     }
   }, [workerProfile?.location, user?.id])
+
+  const fetchJobLocations = async () => {
+    try {
+      const { data } = await supabase.from('job_posts').select('id, title, location').eq('status', 'active')
+      if (data) {
+        const parsed = data.map(j => {
+          const coords = parseLocation(j.location)
+          if(coords) return { id: j.id, title: j.title, lat: coords.lat, lng: coords.lng }
+          return null
+        }).filter(Boolean) as any[]
+        setActiveJobs(parsed)
+      }
+    } catch (e) {
+      console.error(e)
+    }
+  }
 
   const fetchStats = async () => {
     if (!user) return
@@ -103,6 +139,28 @@ export default function WorkerDashboardPage() {
     }
   }, [mapboxToken, coordinates])
 
+  useEffect(() => {
+    if (mapLoaded && mapRef.current && (window as any).mapboxgl) {
+      const mapboxgl = (window as any).mapboxgl
+      if (!workerMarkerRef.current) {
+        const el = document.createElement('div')
+        el.className = 'w-10 h-10 flex items-center justify-center relative z-50'
+        el.innerHTML = `
+          <div class="relative flex items-center justify-center">
+            <div class="absolute w-full h-full bg-blue-500 rounded-full animate-ping opacity-40"></div>
+            <div class="w-4 h-4 bg-blue-600 rounded-full border-2 border-white shadow-lg relative z-10"></div>
+          </div>
+        `
+        workerMarkerRef.current = new mapboxgl.Marker({ element: el })
+          .setLngLat([coordinates.lng, coordinates.lat])
+          .addTo(mapRef.current)
+      } else {
+        workerMarkerRef.current.setLngLat([coordinates.lng, coordinates.lat])
+      }
+      mapRef.current.flyTo({ center: [coordinates.lng, coordinates.lat], zoom: 12.5 })
+    }
+  }, [coordinates, mapLoaded])
+
   const initMap = () => {
     const mapboxgl = (window as any).mapboxgl
     if (!mapboxgl || !mapContainerRef.current || mapRef.current) return
@@ -118,18 +176,46 @@ export default function WorkerDashboardPage() {
 
       map.addControl(new mapboxgl.NavigationControl(), 'top-right')
 
-      const el = document.createElement('div')
-      el.className = 'w-4 h-4 bg-blue-600 rounded-full border-2 border-white shadow-[0_0_0_2px_rgba(37,99,235,0.3)] animate-pulse'
-      
-      new mapboxgl.Marker({ element: el })
-        .setLngLat([coordinates.lng, coordinates.lat])
-        .addTo(map)
-
       mapRef.current = map
+      setMapLoaded(true)
     } catch (e) {
       console.error('Error cargando Mapbox:', e)
     }
   }
+
+  useEffect(() => {
+    if (!mapLoaded || !mapRef.current || !activeJobs.length) return
+    const mapboxgl = (window as any).mapboxgl
+
+    markersRef.current.forEach(m => m.remove())
+    markersRef.current = []
+
+    activeJobs.forEach(job => {
+      const el = document.createElement('div')
+      el.className = 'w-8 h-8 flex items-center justify-center cursor-pointer hover:scale-110 transition-transform'
+      el.innerHTML = `
+        <div class="relative flex items-center justify-center">
+          <div class="w-6 h-6 bg-amber-500 rounded-full border-2 border-white shadow-md flex items-center justify-center text-white relative z-10">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+          </div>
+        </div>
+      `
+      
+      const popup = new mapboxgl.Popup({ offset: 15, closeButton: false }).setHTML(`
+        <div class="p-2 min-w-[120px]">
+          <p class="font-bold text-[#1A1A2E] text-xs leading-tight">${job.title}</p>
+          <p class="text-[10px] text-[#0D7B6B] mt-1 font-bold">¡Oportunidad activa!</p>
+        </div>
+      `)
+
+      const marker = new mapboxgl.Marker({ element: el })
+        .setLngLat([job.lng, job.lat])
+        .setPopup(popup)
+        .addTo(mapRef.current)
+      
+      markersRef.current.push(marker)
+    })
+  }, [mapLoaded, activeJobs])
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
