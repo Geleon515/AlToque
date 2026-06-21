@@ -13,7 +13,8 @@ import {
   ShieldCheck, 
   Settings,
   Tags,
-  Loader2
+  Loader2,
+  MessageSquare
 } from 'lucide-react'
 
 // Categorías fijas de la BD
@@ -43,6 +44,7 @@ export default function WorkerProfilePage() {
   const [specialties, setSpecialties] = useState<number[]>([]) // array de category_id
   const [tags, setTags] = useState<string[]>([])
   const [newTag, setNewTag] = useState('')
+  const [reviews, setReviews] = useState<any[]>([])
 
   useEffect(() => {
     if (workerProfile) {
@@ -74,6 +76,43 @@ export default function WorkerProfilePage() {
 
       if (tagsData) {
         setTags(tagsData.map(t => t.tag))
+      }
+
+      // Cargar reseñas
+      const { data: reviewsData, error: reviewsError } = await supabase
+        .from('reviews')
+        .select(`
+          id,
+          rating,
+          comment,
+          created_at,
+          reviewer_id
+        `)
+        .eq('reviewed_id', workerProfile.id)
+        .order('created_at', { ascending: false })
+
+      if (reviewsError) {
+        console.error('Error al cargar reseñas:', reviewsError)
+      }
+
+      if (reviewsData && reviewsData.length > 0) {
+        const clientIds = [...new Set(reviewsData.map(r => r.reviewer_id))]
+        const { data: clientsData } = await supabase
+          .from('client_profiles')
+          .select('id, full_name, avatar_url')
+          .in('id', clientIds)
+        
+        const clientMap = (clientsData || []).reduce((acc, c) => {
+          acc[c.id] = c
+          return acc
+        }, {} as Record<string, any>)
+
+        const reviewsWithClients = reviewsData.map(r => ({
+          ...r,
+          reviewer: clientMap[r.reviewer_id] || null
+        }))
+
+        setReviews(reviewsWithClients)
       }
 
     } catch (err) {
@@ -250,7 +289,7 @@ export default function WorkerProfilePage() {
               </div>
               <div className="text-center">
                 <p className="text-2xl font-black text-[#1A1A2E]">{workerProfile.jobs_completed}</p>
-                <p className="text-[10px] uppercase tracking-wider text-[#6B7280] font-bold mt-1">Trabajos</p>
+                <p className="text-[10px] uppercase tracking-wider text-[#6B7280] font-bold mt-1">Trabajos Realizados</p>
               </div>
             </div>
           </div>
@@ -385,6 +424,58 @@ export default function WorkerProfilePage() {
               </Button>
             </div>
           </div>
+
+          {/* Sección de Reseñas */}
+          <div className="bg-white border border-[#E5E7EB] rounded-2xl p-6 sm:p-8 shadow-sm">
+            <h3 className="text-lg font-bold text-[#1A1A2E] flex items-center gap-2 mb-6">
+              <MessageSquare size={20} className="text-[#0D7B6B]" />
+              Reseñas Recibidas ({reviews.length})
+            </h3>
+            
+            {reviews.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-sm text-[#6B7280]">Aún no has recibido reseñas. ¡Completa trabajos para obtener calificaciones!</p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {reviews.map((review) => (
+                  <div key={review.id} className="bg-gray-50 rounded-xl p-5 border border-[#E5E7EB]">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center overflow-hidden">
+                          {review.reviewer?.avatar_url ? (
+                            <img src={review.reviewer.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-sm font-bold text-[#0D7B6B]">
+                              {review.reviewer?.full_name?.charAt(0).toUpperCase() || '?'}
+                            </span>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-[#1A1A2E]">{review.reviewer?.full_name || 'Cliente'}</p>
+                          <p className="text-xs text-[#6B7280]">
+                            {new Date(review.created_at).toLocaleDateString('es-PE', {
+                              year: 'numeric', month: 'long', day: 'numeric'
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-gray-200">
+                        <Star size={14} className="text-amber-500 fill-amber-500" />
+                        <span className="text-sm font-black text-[#1A1A2E]">{review.rating}</span>
+                      </div>
+                    </div>
+                    {review.comment ? (
+                      <p className="text-sm text-[#4B5563] leading-relaxed italic border-l-2 border-[#0D7B6B]/30 pl-3">"{review.comment}"</p>
+                    ) : (
+                      <p className="text-sm text-[#9CA3AF] italic">Sin comentario adicional.</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
         </div>
       </div>
     </div>

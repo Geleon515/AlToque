@@ -7,9 +7,7 @@ import {
   ShieldCheck,
   CheckCircle2,
   Star,
-  Zap,
-  TrendingUp,
-  Briefcase
+  TrendingUp
 } from 'lucide-react'
 import Button from '../../components/ui/Button'
 
@@ -31,7 +29,6 @@ export default function WorkerDashboardPage() {
   const navigate = useNavigate()
   const { user, workerProfile } = useAuth()
 
-  const [loading, setLoading] = useState(true)
   const [applicationsToday, setApplicationsToday] = useState(0)
   const [maxApplications, setMaxApplications] = useState(2)
   const [finishedJobs, setFinishedJobs] = useState(0)
@@ -80,7 +77,6 @@ export default function WorkerDashboardPage() {
   const fetchStats = async () => {
     if (!user) return
     try {
-      setLoading(true)
       const { data: subData } = await supabase
         .from('subscriptions')
         .select('plan')
@@ -102,19 +98,17 @@ export default function WorkerDashboardPage() {
 
       setApplicationsToday(appsCount || 0)
 
-      const { count: finishedCount } = await supabase
+      const { data: matchesData } = await supabase
         .from('job_matches')
         .select('*', { count: 'exact', head: true })
         .eq('worker_id', user.id)
         .eq('status', 'finished')
 
-      setFinishedJobs(finishedCount || 0)
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setLoading(false)
+        if (matchesData) setFinishedJobs(matchesData.length)
+      } catch (error) {
+        console.error('Error cargando stats:', error)
+      }
     }
-  }
 
   // Cargar Mapbox
   useEffect(() => {

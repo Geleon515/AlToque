@@ -368,6 +368,27 @@ AFTER INSERT ON reviews
 FOR EACH ROW
 EXECUTE FUNCTION update_client_rating();
 
+-- Actualizar trabajos completados del trabajador
+CREATE OR REPLACE FUNCTION update_worker_jobs_completed()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE worker_profiles
+  SET jobs_completed = (
+    SELECT COUNT(*)
+    FROM job_matches
+    WHERE worker_id = NEW.worker_id AND status = 'finished'
+  )
+  WHERE id = NEW.worker_id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_worker_jobs
+AFTER UPDATE OF status ON job_matches
+FOR EACH ROW
+WHEN (NEW.status = 'finished' AND OLD.status IS DISTINCT FROM 'finished')
+EXECUTE FUNCTION update_worker_jobs_completed();
+
 -- Mantener jobs_posted del cliente (+1 por cada publicación creada)
 CREATE OR REPLACE FUNCTION increment_jobs_posted()
 RETURNS TRIGGER AS $$

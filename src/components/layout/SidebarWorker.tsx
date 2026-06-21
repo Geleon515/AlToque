@@ -7,8 +7,7 @@ import {
   ClipboardList,
   CreditCard,
   Settings,
-  LogOut,
-  Zap,
+  LogOut
 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../lib/supabase'
@@ -30,7 +29,7 @@ export default function SidebarWorker({ onNavigate }: Props) {
   const navigate = useNavigate()
   const location = useLocation()
   const { workerProfile, signOut } = useAuth()
-  const [plan, setPlan] = useState<SubscriptionPlan>('basic')
+  const [, setPlan] = useState<SubscriptionPlan>('basic')
 
   useEffect(() => {
     if (!workerProfile?.id) return
@@ -47,7 +46,6 @@ export default function SidebarWorker({ onNavigate }: Props) {
 
   const name = workerProfile?.full_name ?? ''
   const initial = name.charAt(0).toUpperCase()
-  const isVerified = workerProfile?.identity_verified ?? false
 
   const handleNav = (path: string) => {
     navigate(path)
