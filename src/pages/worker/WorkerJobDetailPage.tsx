@@ -19,7 +19,7 @@ import {
 import type { JobPost, ClientProfile, JobAttachment, Application } from '../../lib/types'
 
 interface JobDetails extends JobPost {
-  client: ClientProfile
+  client: ClientProfile & { avg_rating?: number, total_reviews?: number, jobs_posted?: number }
   category: { name: string }
   attachments: JobAttachment[]
   my_application: Application | null
@@ -28,7 +28,7 @@ interface JobDetails extends JobPost {
 export default function WorkerJobDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { user, workerProfile } = useAuth()
+  const { user } = useAuth()
   const { showToast } = useToast()
 
   const [loading, setLoading] = useState(true)
@@ -139,18 +139,6 @@ export default function WorkerJobDetailPage() {
     } finally {
       setApplying(false)
     }
-  }
-
-  // Formateador de fechas
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-PE', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
   }
 
   if (loading) {

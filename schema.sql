@@ -133,7 +133,9 @@ CREATE TABLE job_matches (
   scheduled_date TIMESTAMPTZ,
   worker_notes TEXT,
   matched_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  finished_at TIMESTAMPTZ
+  finished_at TIMESTAMPTZ,
+  arrival_location_verified BOOLEAN,
+  client_confirmed_arrival BOOLEAN
 );
 
 -- ============================================

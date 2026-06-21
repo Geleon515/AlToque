@@ -111,6 +111,8 @@ export interface JobMatch {
   worker_notes: string | null
   matched_at: string
   finished_at: string | null
+  arrival_location_verified?: boolean | null
+  client_confirmed_arrival?: boolean | null
 }
 
 export interface Message {

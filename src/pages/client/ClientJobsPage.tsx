@@ -81,6 +81,9 @@ export default function ClientJobsPage() {
               full_name,
               avatar_url
             )
+          ),
+          job_matches(
+            status
           )
         `)
         .eq('client_id', user.id)
@@ -186,9 +189,11 @@ export default function ClientJobsPage() {
       ) : (
         <div className="space-y-6">
           {jobs.map(job => {
-            const isActive = job.status === 'active'
-            const isMatched = job.status === 'matched'
-            const isFinished = job.status === 'finished'
+            const matchStatus = (job as any).job_matches && (job as any).job_matches.length > 0 ? (job as any).job_matches[0].status : null
+            const isFinished = job.status === 'finished' || matchStatus === 'finished'
+            const isMatched = (job.status === 'matched' || matchStatus) && !isFinished
+            const isActive = job.status === 'active' && !isMatched && !isFinished
+            
             const applicants = job.applications || []
             const applicantCount = applicants.length
 
@@ -326,19 +331,20 @@ export default function ClientJobsPage() {
                       </Button>
                     </div>
                   ) : (
-                    <>
+                    <div className="flex items-center justify-between w-full">
                       {/* Estado de finalizado */}
-                      <span className="text-xs font-semibold text-[#6B7280] italic self-start sm:self-auto">
-                        Trabajo finalizado y calificado
+                      <span className="text-xs font-semibold text-[#6B7280] flex items-center gap-1.5">
+                        <CheckCircle2 size={14} className="text-[#6B7280]" />
+                        Trabajo finalizado
                       </span>
                       <Button
-                        variant="outline"
-                        disabled
-                        className="w-full sm:w-auto py-2 px-5 border-gray-300 text-gray-400 cursor-not-allowed hover:bg-transparent"
+                        onClick={() => navigate(`/client/jobs/${job.id}`)}
+                        className="py-2 px-5 bg-gray-600 hover:bg-gray-700 text-white border-none flex items-center justify-center gap-1.5"
                       >
-                        Ver Historial
+                        Ver detalles
+                        <ArrowRight size={16} />
                       </Button>
-                    </>
+                    </div>
                   )}
                 </div>
               </div>

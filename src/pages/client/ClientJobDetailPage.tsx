@@ -25,8 +25,9 @@ import {
   Clock,
   DollarSign,
   Navigation,
-  User,
+  User
 } from 'lucide-react'
+import { ReviewWorkerForm } from '../../components/reviews/ReviewWorkerForm'
 import type { MatchStatus } from '../../lib/types'
 import TrackingMap from '../../components/ui/TrackingMap'
 
@@ -80,6 +81,8 @@ interface MatchInfo {
   scheduled_date: string | null
   worker_notes: string | null
   matched_at: string
+  client_confirmed_arrival: boolean | null
+  arrival_location_verified: boolean | null
   worker: {
     id: string
     full_name: string
@@ -114,6 +117,7 @@ export default function ClientJobDetailPage() {
   const [finishing, setFinishing] = useState(false)
   const [job, setJob] = useState<JobDetail | null>(null)
   const [match, setMatch] = useState<MatchInfo | null>(null)
+  const [clientReview, setClientReview] = useState<any>(null)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
 
   // Tracking states
@@ -203,6 +207,8 @@ export default function ClientJobDetailPage() {
             scheduled_date,
             worker_notes,
             matched_at,
+            arrival_location_verified,
+            client_confirmed_arrival,
             worker:worker_profiles(
               id,
               full_name,
@@ -216,6 +222,17 @@ export default function ClientJobDetailPage() {
           .single()
 
         setMatch(matchData as any ?? null)
+
+        // 3. Obtener reseña si ya finalizó o está en progreso (por si acaso)
+        if (matchData) {
+          const { data: reviewData } = await supabase
+            .from('reviews')
+            .select('*')
+            .eq('job_match_id', matchData.id)
+            .eq('reviewer_id', user.id)
+            .maybeSingle()
+          setClientReview(reviewData || null)
+        }
       }
     } catch (error: any) {
       showToast('No se pudo cargar la publicación: ' + error.message, 'error')
@@ -239,6 +256,22 @@ export default function ClientJobDetailPage() {
       showToast('Error al finalizar la búsqueda: ' + error.message, 'error')
     } finally {
       setFinishing(false)
+    }
+  }
+
+  const handleConfirmArrival = async (confirmed: boolean) => {
+    if (!match) return
+    try {
+      const { error } = await supabase
+        .from('job_matches')
+        .update({ client_confirmed_arrival: confirmed })
+        .eq('id', match.id)
+
+      if (error) throw error
+      setMatch(prev => prev ? { ...prev, client_confirmed_arrival: confirmed } : prev)
+      showToast('Confirmación registrada', 'success')
+    } catch (error: any) {
+      showToast('Error al enviar confirmación: ' + error.message, 'error')
     }
   }
 
@@ -278,8 +311,9 @@ export default function ClientJobDetailPage() {
   const applicants = job.applications || []
   const applicantCount = applicants.length
   const attachments = job.job_attachments || []
-  const isMatched = job.status === 'matched'
-  const isActive = job.status === 'active'
+  const isFinished = job.status === 'finished' || match?.status === 'finished'
+  const isMatched = job.status === 'matched' || isFinished
+  const isActive = job.status === 'active' && !isMatched
   const categoryName = job.category?.name
   const CategoryIcon = categoryName ? CATEGORY_ICONS[categoryName] ?? Wrench : Wrench
 
@@ -318,9 +352,14 @@ export default function ClientJobDetailPage() {
                 {categoryName}
               </span>
             )}
-            {isMatched && (
+            {isMatched && !isFinished && (
               <span className="text-[10px] font-bold text-[#0D7B6B] bg-[#E8F5F3] px-2.5 py-0.5 rounded-full border border-[#0D7B6B]/20 uppercase tracking-wider">
                 En proceso
+              </span>
+            )}
+            {isFinished && (
+              <span className="text-[10px] font-bold text-[#6B7280] bg-gray-100 px-2.5 py-0.5 rounded-full border border-gray-200 uppercase tracking-wider">
+                Finalizado
               </span>
             )}
           </div>
@@ -405,9 +444,59 @@ export default function ClientJobDetailPage() {
         {/* ── Panel lateral ── */}
         <div className="space-y-5">
 
+          {/* Banner de confirmación pasiva */}
+          {isMatched && match && match.status === 'in_progress' && match.client_confirmed_arrival === null && (
+            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 shadow-sm mb-5">
+              <h3 className="text-sm font-bold text-blue-900 mb-2">¿El técnico ya llegó?</h3>
+              <p className="text-xs text-blue-700 mb-3">El trabajador ha indicado que se encuentra en tu ubicación.</p>
+              <div className="flex gap-2">
+                <Button onClick={() => handleConfirmArrival(true)} className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 px-3">
+                  Sí, ya llegó
+                </Button>
+                <button onClick={() => handleConfirmArrival(false)} className="border border-blue-300 text-blue-700 hover:bg-blue-100 text-xs h-8 px-3 bg-white rounded-xl font-semibold transition-colors">
+                  Aún no
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* ═══ PANEL DE SEGUIMIENTO (trabajo matched) ═══ */}
           {isMatched && match ? (
             <>
+              {/* Formulario de Calificación si el técnico ya marcó finalizado */}
+              {match.status === 'finished' && !clientReview && (
+                <ReviewWorkerForm 
+                  jobMatchId={match.id}
+                  workerId={match.worker?.id || ''}
+                  workerName={match.worker?.full_name || 'Trabajador'}
+                  onReviewSubmitted={(review) => {
+                    setClientReview(review)
+                    // Mostrar toast opcional si es necesario
+                  }}
+                />
+              )}
+
+              {/* Reseña Enviada */}
+              {clientReview && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 shadow-sm mb-5">
+                  <h3 className="text-sm font-bold text-emerald-900 mb-2 flex items-center gap-2">
+                    <CheckCircle2 size={18} className="text-emerald-600" />
+                    Ciclo Finalizado Formalmente
+                  </h3>
+                  <p className="text-xs text-emerald-800 mb-3">Has confirmado y calificado este trabajo.</p>
+                  <div className="bg-white rounded-xl p-3 border border-emerald-100">
+                    <div className="flex items-center gap-1 mb-2">
+                      {[1, 2, 3, 4, 5].map(star => (
+                        <Star key={star} size={14} className={star <= clientReview.rating ? 'text-amber-400 fill-amber-400' : 'text-gray-200 fill-gray-200'} />
+                      ))}
+                    </div>
+                    {clientReview.comment && (
+                      <p className="text-xs text-gray-700 italic">"{clientReview.comment}"</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Estado del trabajo — timeline */}
               <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 shadow-sm">
                 <h2 className="text-sm font-bold text-[#1A1A2E] mb-5">Estado del trabajo</h2>
@@ -453,6 +542,11 @@ export default function ClientJobDetailPage() {
                             {active && (
                               <span className="ml-2 text-[10px] font-normal text-[#0D7B6B] bg-[#E8F5F3] px-1.5 py-0.5 rounded-full">
                                 Actual
+                              </span>
+                            )}
+                            {step.status === 'in_progress' && match.arrival_location_verified && (
+                              <span className="ml-2 text-[10px] font-normal text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full inline-flex items-center gap-1">
+                                <CheckCircle2 size={10} /> Verificada
                               </span>
                             )}
                           </p>

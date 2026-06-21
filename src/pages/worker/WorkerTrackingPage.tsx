@@ -3,19 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { useToast } from '../../components/ui/Toast'
-import Button from '../../components/ui/Button'
-import { 
-  CheckCircle2, 
-  MapPin, 
-  Phone, 
-  MessageSquare, 
-  Calendar,
-  Truck,
-  Wrench,
-  Loader2,
-  MoreVertical,
-  Navigation
-} from 'lucide-react'
+
+import { MapPin, Navigation, Phone, MessageSquare, CheckCircle2, Loader2, Wrench, Calendar, Star } from 'lucide-react'
+import { ReviewClientForm } from '../../components/reviews/ReviewClientForm'
 import type { MatchStatus } from '../../lib/types'
 import TrackingMap from '../../components/ui/TrackingMap'
 import { getDistanceInMeters } from '../../lib/geo'
@@ -31,6 +21,7 @@ interface TrackingMatch {
     title: string
     address: string
     district: string
+    client_id: string
     client: {
       full_name: string
       phone: string
@@ -47,6 +38,7 @@ export default function WorkerTrackingPage() {
   const [loading, setLoading] = useState(true)
   const [matches, setMatches] = useState<TrackingMatch[]>([])
   const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const [workerReviews, setWorkerReviews] = useState<Record<string, any>>({})
 
   // Tracking states
   const [workerLocation, setWorkerLocation] = useState<{lng: number, lat: number} | null>(null)
@@ -150,6 +142,7 @@ export default function WorkerTrackingPage() {
             title,
             address,
             district,
+            client_id,
             client:client_profiles (
               full_name,
               phone,
@@ -164,6 +157,21 @@ export default function WorkerTrackingPage() {
 
       if (data && data.length > 0) {
         setMatches(data as any)
+        
+        const matchIds = data.map(m => m.id)
+        const { data: reviewsData } = await supabase
+          .from('reviews')
+          .select('*')
+          .in('job_match_id', matchIds)
+          .eq('reviewer_id', user!.id)
+          
+        if (reviewsData) {
+          const reviewsMap: Record<string, any> = {}
+          reviewsData.forEach(r => {
+            reviewsMap[r.job_match_id] = r
+          })
+          setWorkerReviews(reviewsMap)
+        }
       } else {
         setMatches([])
       }
@@ -181,6 +189,30 @@ export default function WorkerTrackingPage() {
       const payload: any = { status: newStatus }
       if (newStatus === 'finished') {
         payload.finished_at = new Date().toISOString()
+      }
+
+      // Snapshot GPS si marca que ya llegó
+      if (newStatus === 'in_progress') {
+        const match = matches.find(m => m.id === matchId)
+        const coords = match ? jobCoordinates[match.job.id] : null
+        
+        let verified: boolean | null = null
+        if (coords && 'geolocation' in navigator) {
+          try {
+            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: false,
+                timeout: 5000,
+                maximumAge: 0
+              })
+            })
+            const dist = getDistanceInMeters(position.coords.latitude, position.coords.longitude, coords.lat, coords.lng)
+            verified = dist <= 150
+          } catch (err) {
+            console.error("Error en snapshot GPS:", err)
+          }
+        }
+        payload.arrival_location_verified = verified
       }
 
       const { error } = await supabase
@@ -407,19 +439,49 @@ export default function WorkerTrackingPage() {
             <h2 className="text-lg font-bold text-[#1A1A2E] mb-4">Historial de Trabajos</h2>
             <div className="bg-white border border-[#E5E7EB] rounded-2xl overflow-hidden shadow-sm">
               {pastMatches.map((match, index) => (
-                <div key={match.id} className={`p-4 flex items-center justify-between ${index !== pastMatches.length - 1 ? 'border-b border-[#F1F5F9]' : ''}`}>
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center border border-gray-100">
-                      <CheckCircle2 size={20} className="text-emerald-500" />
+                <div key={match.id} className={`p-4 flex flex-col ${index !== pastMatches.length - 1 ? 'border-b border-[#F1F5F9]' : ''}`}>
+                  <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center border border-gray-100">
+                        <CheckCircle2 size={20} className="text-emerald-500" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-[#1A1A2E] text-sm">{match.job?.title}</h4>
+                        <p className="text-xs text-[#6B7280]">Cliente: {match.job?.client?.full_name || 'Cliente'}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-bold text-[#1A1A2E] text-sm">{match.job?.title}</h4>
-                      <p className="text-xs text-[#6B7280]">Cliente: {match.job?.client?.full_name || 'Cliente'}</p>
-                    </div>
+                    <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
+                      Completado
+                    </span>
                   </div>
-                  <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
-                    Completado
-                  </span>
+                  
+                  {!workerReviews[match.id] ? (
+                    <ReviewClientForm 
+                      jobMatchId={match.id}
+                      clientId={match.job?.client_id as string}
+                      clientName={match.job?.client?.full_name || 'Cliente'}
+                      onReviewSubmitted={(review) => {
+                        setWorkerReviews(prev => ({ ...prev, [match.id]: review }))
+                      }}
+                    />
+                  ) : (
+                    <div className="mt-3 bg-emerald-50 rounded-xl p-3 border border-emerald-100 flex items-start gap-3">
+                      <div className="mt-0.5">
+                        <CheckCircle2 size={16} className="text-emerald-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-emerald-900 mb-1">Has calificado a este cliente</p>
+                        <div className="flex items-center gap-1 mb-1">
+                          {[1, 2, 3, 4, 5].map(star => (
+                            <Star key={star} size={12} className={star <= workerReviews[match.id].rating ? 'text-amber-400 fill-amber-400' : 'text-gray-200 fill-gray-200'} />
+                          ))}
+                        </div>
+                        {workerReviews[match.id].comment && (
+                          <p className="text-xs text-emerald-800 italic">"{workerReviews[match.id].comment}"</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
