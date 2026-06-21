@@ -260,6 +260,26 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
 
+-- Obtener coordenadas exactas de un trabajo
+CREATE OR REPLACE FUNCTION get_job_coordinates(job_id_param UUID)
+RETURNS JSON AS $$
+DECLARE
+  lng NUMERIC;
+  lat NUMERIC;
+BEGIN
+  SELECT ST_X(location::geometry), ST_Y(location::geometry)
+  INTO lng, lat
+  FROM job_posts
+  WHERE id = job_id_param;
+  
+  IF lng IS NULL OR lat IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  RETURN json_build_object('lng', lng, 'lat', lat);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- Validar si el trabajador puede postular hoy (2 básico / 5 premium)
 -- Cuenta las postulaciones del día (hora de Lima) y las compara con el límite del plan
 CREATE OR REPLACE FUNCTION check_daily_application_limit(worker_id UUID)

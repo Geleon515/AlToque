@@ -28,6 +28,7 @@ import {
   User,
 } from 'lucide-react'
 import type { MatchStatus } from '../../lib/types'
+import TrackingMap from '../../components/ui/TrackingMap'
 
 // Iconos por categoría (mismo criterio que NewJobPage)
 const CATEGORY_ICONS: Record<string, typeof Wrench> = {
@@ -115,10 +116,42 @@ export default function ClientJobDetailPage() {
   const [match, setMatch] = useState<MatchInfo | null>(null)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
 
+  // Tracking states
+  const [jobCoordinates, setJobCoordinates] = useState<{lng: number, lat: number} | null>(null)
+  const [workerLocation, setWorkerLocation] = useState<{lng: number, lat: number} | null>(null)
+
   useEffect(() => {
     if (user && id) fetchJobDetail()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, id])
+
+  // Lógica de tracking cuando el trabajo está "En camino"
+  useEffect(() => {
+    if (job && match && match.status === 'on_the_way') {
+      const loadMapData = async () => {
+        // Obtener coordenadas de destino
+        if (!jobCoordinates) {
+          const { data, error } = await supabase.rpc('get_job_coordinates', { job_id_param: job.id })
+          if (!error && data) {
+            setJobCoordinates(data as {lng: number, lat: number})
+          }
+        }
+      }
+      loadMapData()
+
+      // Suscribirse a la ubicación en vivo del trabajador
+      const channel = supabase.channel(`tracking_${match.id}`)
+      channel.on('broadcast', { event: 'location' }, (payload) => {
+        if (payload.payload) {
+          setWorkerLocation(payload.payload)
+        }
+      }).subscribe()
+
+      return () => {
+        supabase.removeChannel(channel)
+      }
+    }
+  }, [job, match])
 
   const fetchJobDetail = async () => {
     try {
@@ -266,10 +299,12 @@ export default function ClientJobDetailPage() {
       </button>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-        {/* ── Panel principal: datos del trabajo ── */}
-        <div className="lg:col-span-2 bg-white border border-[#E5E7EB] rounded-2xl p-6 sm:p-8 shadow-sm">
-          {/* Título y meta */}
-          <h1 className="text-2xl font-bold text-[#1A1A2E] leading-snug">
+        {/* ── Columna principal ── */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* ── Datos del trabajo ── */}
+          <div className="bg-white border border-[#E5E7EB] rounded-2xl p-6 sm:p-8 shadow-sm">
+            {/* Título y meta */}
+            <h1 className="text-2xl font-bold text-[#1A1A2E] leading-snug">
             {job.title || 'Trabajo sin título'}
           </h1>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-2 text-sm text-[#6B7280]">
@@ -342,6 +377,29 @@ export default function ClientJobDetailPage() {
               </Button>
             </div>
           )}
+          </div>
+
+          {/* Mapa de Tracking (Solo si está en camino) */}
+          {isMatched && match && match.status === 'on_the_way' && (
+            <div className="bg-white border border-[#E5E7EB] rounded-2xl overflow-hidden shadow-sm flex flex-col">
+              <div className="p-4 sm:p-6 border-b border-[#E5E7EB] flex items-center justify-between">
+                <h2 className="text-base font-bold text-[#1A1A2E] flex items-center gap-2">
+                  <Navigation size={18} className="text-[#0D7B6B]" />
+                  Rastreo en vivo
+                </h2>
+                <div className="flex items-center gap-2 text-xs font-semibold text-[#6B7280]">
+                  <span className="flex h-2.5 w-2.5 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
+                  </span>
+                  El trabajador está en camino...
+                </div>
+              </div>
+              <div className="h-[400px] relative w-full bg-gray-50">
+                <TrackingMap destination={jobCoordinates} workerPosition={workerLocation} />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── Panel lateral ── */}
@@ -350,6 +408,61 @@ export default function ClientJobDetailPage() {
           {/* ═══ PANEL DE SEGUIMIENTO (trabajo matched) ═══ */}
           {isMatched && match ? (
             <>
+              {/* Estado del trabajo — timeline */}
+              <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 shadow-sm">
+                <h2 className="text-sm font-bold text-[#1A1A2E] mb-5">Estado del trabajo</h2>
+                <div className="space-y-0">
+                  {MATCH_STEPS.map((step, idx) => {
+                    const StepIcon = step.icon
+                    const done = idx <= currentStep
+                    const active = idx === currentStep
+                    const isLast = idx === MATCH_STEPS.length - 1
+                    return (
+                      <div key={step.status} className="flex gap-3">
+                        {/* Indicador vertical */}
+                        <div className="flex flex-col items-center">
+                          <div
+                            className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+                              done
+                                ? 'bg-[#0D7B6B] text-white'
+                                : 'bg-[#F1F5F9] text-[#9CA3AF] border border-[#E5E7EB]'
+                            } ${active ? 'ring-2 ring-[#0D7B6B]/30 ring-offset-1' : ''}`}
+                          >
+                            <StepIcon size={13} />
+                          </div>
+                          {!isLast && (
+                            <div
+                              className={`w-0.5 h-8 my-0.5 rounded-full ${
+                                done && idx < currentStep ? 'bg-[#0D7B6B]' : 'bg-[#E5E7EB]'
+                              }`}
+                            />
+                          )}
+                        </div>
+                        {/* Etiqueta */}
+                        <div className={`pb-${isLast ? '0' : '2'} flex items-center`}>
+                          <p
+                            className={`text-xs font-semibold ${
+                              active
+                                ? 'text-[#0D7B6B]'
+                                : done
+                                  ? 'text-[#1A1A2E]'
+                                  : 'text-[#9CA3AF]'
+                            }`}
+                          >
+                            {step.label}
+                            {active && (
+                              <span className="ml-2 text-[10px] font-normal text-[#0D7B6B] bg-[#E8F5F3] px-1.5 py-0.5 rounded-full">
+                                Actual
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
               {/* Trabajador asignado */}
               <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 shadow-sm">
                 <h2 className="text-sm font-bold text-[#1A1A2E] mb-4 flex items-center gap-2">
@@ -444,61 +557,6 @@ export default function ClientJobDetailPage() {
                       </div>
                     </div>
                   )}
-                </div>
-              </div>
-
-              {/* Estado del trabajo — timeline */}
-              <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 shadow-sm">
-                <h2 className="text-sm font-bold text-[#1A1A2E] mb-5">Estado del trabajo</h2>
-                <div className="space-y-0">
-                  {MATCH_STEPS.map((step, idx) => {
-                    const StepIcon = step.icon
-                    const done = idx <= currentStep
-                    const active = idx === currentStep
-                    const isLast = idx === MATCH_STEPS.length - 1
-                    return (
-                      <div key={step.status} className="flex gap-3">
-                        {/* Indicador vertical */}
-                        <div className="flex flex-col items-center">
-                          <div
-                            className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-colors ${
-                              done
-                                ? 'bg-[#0D7B6B] text-white'
-                                : 'bg-[#F1F5F9] text-[#9CA3AF] border border-[#E5E7EB]'
-                            } ${active ? 'ring-2 ring-[#0D7B6B]/30 ring-offset-1' : ''}`}
-                          >
-                            <StepIcon size={13} />
-                          </div>
-                          {!isLast && (
-                            <div
-                              className={`w-0.5 h-8 my-0.5 rounded-full ${
-                                done && idx < currentStep ? 'bg-[#0D7B6B]' : 'bg-[#E5E7EB]'
-                              }`}
-                            />
-                          )}
-                        </div>
-                        {/* Etiqueta */}
-                        <div className={`pb-${isLast ? '0' : '2'} flex items-center`}>
-                          <p
-                            className={`text-xs font-semibold ${
-                              active
-                                ? 'text-[#0D7B6B]'
-                                : done
-                                  ? 'text-[#1A1A2E]'
-                                  : 'text-[#9CA3AF]'
-                            }`}
-                          >
-                            {step.label}
-                            {active && (
-                              <span className="ml-2 text-[10px] font-normal text-[#0D7B6B] bg-[#E8F5F3] px-1.5 py-0.5 rounded-full">
-                                Actual
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                    )
-                  })}
                 </div>
               </div>
             </>
