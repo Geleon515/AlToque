@@ -440,11 +440,24 @@ CREATE POLICY "worker_profile_read" ON worker_profiles
 CREATE POLICY "worker_profile_write" ON worker_profiles
   FOR ALL USING (auth.uid() = id);
 
--- Job posts: clientes ven los suyos, trabajadores ven los activos
+-- Función Security Definer para evitar recursividad en RLS de job_posts
+CREATE OR REPLACE FUNCTION has_applied_to_job(job_id uuid, user_id uuid)
+RETURNS boolean
+LANGUAGE sql SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM applications 
+    WHERE job_post_id = job_id AND worker_id = user_id
+  );
+$$;
+
+-- Job posts: clientes ven los suyos, trabajadores ven los activos o a los que postularon
 CREATE POLICY "client_own_jobs" ON job_posts
   FOR ALL USING (auth.uid() = client_id);
 CREATE POLICY "worker_see_active_jobs" ON job_posts
   FOR SELECT USING (status = 'active');
+CREATE POLICY "worker_see_applied_jobs" ON job_posts
+  FOR SELECT USING (has_applied_to_job(id, auth.uid()));
 
 -- Attachments: visibles si puedes ver el job_post
 CREATE POLICY "attachments_read" ON job_attachments
@@ -485,6 +498,17 @@ CREATE POLICY "own_subscription" ON subscriptions
 -- Notifications: solo el usuario ve las suyas
 CREATE POLICY "own_notifications" ON notifications
   FOR ALL USING (auth.uid() = user_id);
+
+-- Job matches: el trabajador y el cliente del job_post pueden leer/crear el match.
+-- NOTA: RLS estaba activo sin ninguna política → todo INSERT/SELECT era bloqueado.
+CREATE POLICY "match_participants" ON job_matches
+  FOR ALL USING (
+    auth.uid() = worker_id
+    OR EXISTS (
+      SELECT 1 FROM job_posts jp
+      WHERE jp.id = job_post_id AND jp.client_id = auth.uid()
+    )
+  );
 
 -- Categories: lectura pública
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;

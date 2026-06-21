@@ -107,6 +107,8 @@ export interface JobMatch {
   application_id: string
   agreed_price: number | null
   status: MatchStatus
+  scheduled_date: string | null
+  worker_notes: string | null
   matched_at: string
   finished_at: string | null
 }
@@ -149,6 +151,40 @@ export interface Notification {
   read: boolean
   reference_id: string | null
   created_at: string
+}
+
+// ============================================================
+// Tipos para la vista de Mensajes / Chat
+// ============================================================
+
+/**
+ * Contenido parseado de un mensaje de tipo "propuesta de acuerdo".
+ * Se guarda serializado como JSON en messages.content.
+ */
+export interface ProposalPayload {
+  type: 'proposal'
+  amount: number          // monto acordado en soles
+  scheduled_date: string  // ISO 8601 (fecha + hora)
+}
+
+/**
+ * Hilo de chat que se muestra en la columna izquierda de la pantalla
+ * de Mensajes. Agrupa la aplicación, el job, el perfil de la contraparte
+ * y el match (si ya fue aceptado).
+ */
+export interface ChatThread {
+  application_id: string
+  job_post_id: string
+  job_title: string | null
+  job_description: string
+  /** Nombre de la contraparte (trabajador para el cliente; cliente para el trabajador) */
+  other_name: string
+  other_avatar: string | null
+  other_id: string
+  applied_at: string
+  application_status: ApplicationStatus
+  /** Match ya creado para esta aplicación, si existe */
+  match: JobMatch | null
 }
 
 // ============================================================

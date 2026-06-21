@@ -20,7 +20,14 @@ import {
   Truck,
   MoreHorizontal,
   FileVideo,
+  CheckCircle2,
+  CalendarDays,
+  Clock,
+  DollarSign,
+  Navigation,
+  User,
 } from 'lucide-react'
+import type { MatchStatus } from '../../lib/types'
 
 // Iconos por categoría (mismo criterio que NewJobPage)
 const CATEGORY_ICONS: Record<string, typeof Wrench> = {
@@ -32,6 +39,20 @@ const CATEGORY_ICONS: Record<string, typeof Wrench> = {
   'Otros Servicios': MoreHorizontal,
 }
 
+const MATCH_STEPS: { status: MatchStatus; label: string; icon: typeof CheckCircle2 }[] = [
+  { status: 'accepted',    label: 'Acuerdo confirmado',  icon: CheckCircle2 },
+  { status: 'on_the_way', label: 'En camino',            icon: Navigation   },
+  { status: 'in_progress', label: 'En progreso',         icon: Wrench       },
+  { status: 'finished',   label: 'Finalizado',           icon: CheckCircle2 },
+]
+
+const STATUS_ORDER: Record<MatchStatus, number> = {
+  accepted: 0,
+  on_the_way: 1,
+  in_progress: 2,
+  finished: 3,
+}
+
 interface Attachment {
   id: string
   file_url: string
@@ -39,7 +60,7 @@ interface Attachment {
 }
 
 interface Applicant {
-  id: string // id de la postulación (application)
+  id: string
   applied_at: string
   worker: {
     id: string
@@ -49,6 +70,23 @@ interface Applicant {
     avg_rating: number
     total_reviews: number
   }
+}
+
+interface MatchInfo {
+  id: string
+  status: MatchStatus
+  agreed_price: number | null
+  scheduled_date: string | null
+  worker_notes: string | null
+  matched_at: string
+  worker: {
+    id: string
+    full_name: string
+    avatar_url: string | null
+    avg_rating: number
+    total_reviews: number
+    identity_verified: boolean
+  } | null
 }
 
 interface JobDetail {
@@ -74,12 +112,12 @@ export default function ClientJobDetailPage() {
   const [loading, setLoading] = useState(true)
   const [finishing, setFinishing] = useState(false)
   const [job, setJob] = useState<JobDetail | null>(null)
+  const [match, setMatch] = useState<MatchInfo | null>(null)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
 
   useEffect(() => {
-    if (user && id) {
-      fetchJobDetail()
-    }
+    if (user && id) fetchJobDetail()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, id])
 
   const fetchJobDetail = async () => {
@@ -87,6 +125,7 @@ export default function ClientJobDetailPage() {
       setLoading(true)
       if (!user || !id) return
 
+      // 1. Datos del job_post
       const { data, error } = await supabase
         .from('job_posts')
         .select(`
@@ -119,6 +158,32 @@ export default function ClientJobDetailPage() {
 
       if (error) throw error
       setJob(data as any)
+
+      // 2. Si el trabajo está matched, cargar el job_match con datos del trabajador
+      if (data?.status === 'matched' || data?.status === 'finished') {
+        const { data: matchData } = await supabase
+          .from('job_matches')
+          .select(`
+            id,
+            status,
+            agreed_price,
+            scheduled_date,
+            worker_notes,
+            matched_at,
+            worker:worker_profiles(
+              id,
+              full_name,
+              avatar_url,
+              avg_rating,
+              total_reviews,
+              identity_verified
+            )
+          `)
+          .eq('job_post_id', id)
+          .single()
+
+        setMatch(matchData as any ?? null)
+      }
     } catch (error: any) {
       showToast('No se pudo cargar la publicación: ' + error.message, 'error')
     } finally {
@@ -126,7 +191,6 @@ export default function ClientJobDetailPage() {
     }
   }
 
-  // Finalizar la búsqueda (cerrar la publicación)
   const handleFinishSearch = async () => {
     if (!job) return
     try {
@@ -135,7 +199,6 @@ export default function ClientJobDetailPage() {
         .from('job_posts')
         .update({ status: 'finished' })
         .eq('id', job.id)
-
       if (error) throw error
       showToast('Búsqueda finalizada correctamente', 'success')
       navigate('/client/jobs')
@@ -146,6 +209,16 @@ export default function ClientJobDetailPage() {
     }
   }
 
+  // ── Helpers de formato ────────────────────────────────────────────────────
+  const formatDate = (iso: string) =>
+    new Date(iso).toLocaleDateString('es-PE', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    })
+
+  const formatTime = (iso: string) =>
+    new Date(iso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })
+
+  // ── Loading / Not found ───────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -172,10 +245,15 @@ export default function ClientJobDetailPage() {
   const applicants = job.applications || []
   const applicantCount = applicants.length
   const attachments = job.job_attachments || []
-  const isActive = job.status === 'active' || job.status === 'matched'
+  const isMatched = job.status === 'matched'
+  const isActive = job.status === 'active'
   const categoryName = job.category?.name
   const CategoryIcon = categoryName ? CATEGORY_ICONS[categoryName] ?? Wrench : Wrench
 
+  // Paso actual del seguimiento
+  const currentStep = match ? STATUS_ORDER[match.status] : -1
+
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       {/* Volver */}
@@ -184,11 +262,11 @@ export default function ClientJobDetailPage() {
         className="flex items-center gap-1.5 text-sm font-medium text-[#6B7280] hover:text-[#0D7B6B] transition-colors mb-6"
       >
         <ArrowLeft size={16} />
-        Volver
+        Volver a mis publicaciones
       </button>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-        {/* ── Panel principal ── */}
+        {/* ── Panel principal: datos del trabajo ── */}
         <div className="lg:col-span-2 bg-white border border-[#E5E7EB] rounded-2xl p-6 sm:p-8 shadow-sm">
           {/* Título y meta */}
           <h1 className="text-2xl font-bold text-[#1A1A2E] leading-snug">
@@ -203,6 +281,11 @@ export default function ClientJobDetailPage() {
               <span className="flex items-center gap-1.5">
                 <CategoryIcon size={15} className="text-[#0D7B6B]" />
                 {categoryName}
+              </span>
+            )}
+            {isMatched && (
+              <span className="text-[10px] font-bold text-[#0D7B6B] bg-[#E8F5F3] px-2.5 py-0.5 rounded-full border border-[#0D7B6B]/20 uppercase tracking-wider">
+                En proceso
               </span>
             )}
           </div>
@@ -246,7 +329,7 @@ export default function ClientJobDetailPage() {
             </div>
           )}
 
-          {/* Finalizar búsqueda */}
+          {/* Finalizar búsqueda (solo si está activo) */}
           {isActive && (
             <div className="mt-8">
               <Button
@@ -261,102 +344,263 @@ export default function ClientJobDetailPage() {
           )}
         </div>
 
-        {/* ── Panel lateral: interesados + candidatos ── */}
-        <div className="space-y-6">
-          {/* Contador de interesados */}
-          <div className="bg-[#E8F5F3] border border-[#0D7B6B]/15 rounded-2xl p-5 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shrink-0">
-              <Users size={20} className="text-[#0D7B6B]" />
-            </div>
-            <div>
-              <p className="text-base font-bold text-[#1A1A2E] leading-tight">
-                {applicantCount} {applicantCount === 1 ? 'profesional' : 'profesionales'}
-              </p>
-              <p className="text-xs text-[#6B7280]">
-                {applicantCount > 0 ? 'interesados en tu publicación' : 'aún sin postulantes'}
-              </p>
-            </div>
-          </div>
+        {/* ── Panel lateral ── */}
+        <div className="space-y-5">
 
-          {/* Lista de candidatos */}
-          <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 shadow-sm">
-            <h2 className="text-sm font-bold text-[#1A1A2E] mb-4">
-              Candidatos ({applicantCount})
-            </h2>
+          {/* ═══ PANEL DE SEGUIMIENTO (trabajo matched) ═══ */}
+          {isMatched && match ? (
+            <>
+              {/* Trabajador asignado */}
+              <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 shadow-sm">
+                <h2 className="text-sm font-bold text-[#1A1A2E] mb-4 flex items-center gap-2">
+                  <User size={15} className="text-[#0D7B6B]" />
+                  Trabajador asignado
+                </h2>
+                {match.worker ? (
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-full bg-[#E8F5F3] overflow-hidden flex items-center justify-center border border-[#0D7B6B]/15 shrink-0">
+                      {match.worker.avatar_url ? (
+                        <img src={match.worker.avatar_url} alt={match.worker.full_name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-sm font-bold text-[#0D7B6B]">
+                          {match.worker.full_name.charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1">
+                        <p className="text-sm font-semibold text-[#1A1A2E] truncate">{match.worker.full_name}</p>
+                        {match.worker.identity_verified && (
+                          <BadgeCheck size={14} className="text-[#0D7B6B] shrink-0" />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 mt-0.5 text-xs text-[#6B7280]">
+                        <Star size={12} className="text-amber-400 fill-amber-400" />
+                        {match.worker.total_reviews > 0
+                          ? `${match.worker.avg_rating} (${match.worker.total_reviews} reseñas)`
+                          : 'Sin reseñas aún'}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-[#9CA3AF]">Datos del trabajador no disponibles</p>
+                )}
 
-            {applicantCount === 0 ? (
-              <div className="text-center py-8">
-                <Users size={32} className="text-[#6B7280] opacity-30 mx-auto mb-2" />
-                <p className="text-xs text-[#6B7280]">
-                  Todavía nadie ha postulado. Los técnicos cercanos verán tu publicación pronto.
-                </p>
+                {/* Ir al chat */}
+                <button
+                  onClick={() => navigate('/client/messages')}
+                  className="mt-4 w-full flex items-center justify-center gap-1.5 bg-[#E8F5F3] hover:bg-[#0D7B6B] hover:text-white text-[#0D7B6B] text-xs font-semibold py-2.5 rounded-xl transition-colors"
+                >
+                  <MessageSquare size={14} />
+                  Ver chat
+                </button>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {applicants.map(app => {
-                  const w = app.worker
-                  const initials = w.full_name
-                    .split(' ')
-                    .map(n => n[0])
-                    .join('')
-                    .slice(0, 2)
-                    .toUpperCase()
-                  return (
-                    <div
-                      key={app.id}
-                      className="bg-[#F8FAFC] border border-[#E5E7EB] rounded-xl p-4"
-                    >
-                      <div className="flex items-center gap-3">
-                        {/* Avatar */}
-                        <div className="w-11 h-11 rounded-full bg-[#E8F5F3] overflow-hidden flex items-center justify-center border border-[#0D7B6B]/15 shrink-0">
-                          {w.avatar_url ? (
-                            <img src={w.avatar_url} alt={w.full_name} className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-xs font-bold text-[#0D7B6B]">{initials}</span>
+
+              {/* Detalles del acuerdo */}
+              <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 shadow-sm">
+                <h2 className="text-sm font-bold text-[#1A1A2E] mb-4">Detalles del acuerdo</h2>
+                <div className="space-y-3">
+                  {/* Monto */}
+                  <div className="flex items-center gap-3 p-3 bg-[#F8FAFC] rounded-xl border border-[#E5E7EB]">
+                    <div className="w-8 h-8 rounded-lg bg-[#E8F5F3] flex items-center justify-center shrink-0">
+                      <DollarSign size={15} className="text-[#0D7B6B]" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-[#9CA3AF] uppercase font-semibold tracking-wider">Monto acordado</p>
+                      <p className="text-sm font-bold text-[#1A1A2E]">
+                        {match.agreed_price !== null
+                          ? `S/ ${match.agreed_price.toFixed(2)}`
+                          : 'No definido'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Fecha */}
+                  {match.scheduled_date && (
+                    <div className="flex items-center gap-3 p-3 bg-[#F8FAFC] rounded-xl border border-[#E5E7EB]">
+                      <div className="w-8 h-8 rounded-lg bg-[#E8F5F3] flex items-center justify-center shrink-0">
+                        <CalendarDays size={15} className="text-[#0D7B6B]" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-[#9CA3AF] uppercase font-semibold tracking-wider">Fecha acordada</p>
+                        <p className="text-sm font-semibold text-[#1A1A2E]">
+                          {formatDate(match.scheduled_date)}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Hora */}
+                  {match.scheduled_date && (
+                    <div className="flex items-center gap-3 p-3 bg-[#F8FAFC] rounded-xl border border-[#E5E7EB]">
+                      <div className="w-8 h-8 rounded-lg bg-[#E8F5F3] flex items-center justify-center shrink-0">
+                        <Clock size={15} className="text-[#0D7B6B]" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-[#9CA3AF] uppercase font-semibold tracking-wider">Hora de llegada</p>
+                        <p className="text-sm font-semibold text-[#1A1A2E]">
+                          {formatTime(match.scheduled_date)}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Estado del trabajo — timeline */}
+              <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 shadow-sm">
+                <h2 className="text-sm font-bold text-[#1A1A2E] mb-5">Estado del trabajo</h2>
+                <div className="space-y-0">
+                  {MATCH_STEPS.map((step, idx) => {
+                    const StepIcon = step.icon
+                    const done = idx <= currentStep
+                    const active = idx === currentStep
+                    const isLast = idx === MATCH_STEPS.length - 1
+                    return (
+                      <div key={step.status} className="flex gap-3">
+                        {/* Indicador vertical */}
+                        <div className="flex flex-col items-center">
+                          <div
+                            className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+                              done
+                                ? 'bg-[#0D7B6B] text-white'
+                                : 'bg-[#F1F5F9] text-[#9CA3AF] border border-[#E5E7EB]'
+                            } ${active ? 'ring-2 ring-[#0D7B6B]/30 ring-offset-1' : ''}`}
+                          >
+                            <StepIcon size={13} />
+                          </div>
+                          {!isLast && (
+                            <div
+                              className={`w-0.5 h-8 my-0.5 rounded-full ${
+                                done && idx < currentStep ? 'bg-[#0D7B6B]' : 'bg-[#E5E7EB]'
+                              }`}
+                            />
                           )}
                         </div>
-                        {/* Nombre + rating */}
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1">
-                            <p className="text-sm font-semibold text-[#1A1A2E] truncate">
-                              {w.full_name}
-                            </p>
-                            {w.identity_verified && (
-                              <BadgeCheck size={15} className="text-[#0D7B6B] shrink-0" />
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1 mt-0.5 text-xs text-[#6B7280]">
-                            <Star size={13} className="text-amber-400 fill-amber-400" />
-                            {w.total_reviews > 0 ? (
-                              <span>
-                                {w.avg_rating} ({w.total_reviews}{' '}
-                                {w.total_reviews === 1 ? 'reseña' : 'reseñas'})
+                        {/* Etiqueta */}
+                        <div className={`pb-${isLast ? '0' : '2'} flex items-center`}>
+                          <p
+                            className={`text-xs font-semibold ${
+                              active
+                                ? 'text-[#0D7B6B]'
+                                : done
+                                  ? 'text-[#1A1A2E]'
+                                  : 'text-[#9CA3AF]'
+                            }`}
+                          >
+                            {step.label}
+                            {active && (
+                              <span className="ml-2 text-[10px] font-normal text-[#0D7B6B] bg-[#E8F5F3] px-1.5 py-0.5 rounded-full">
+                                Actual
                               </span>
-                            ) : (
-                              <span className="italic">Sin reseñas aún</span>
                             )}
-                          </div>
+                          </p>
                         </div>
                       </div>
-
-                      {/* Ver mensaje → chat (Persona 5) */}
-                      <button
-                        onClick={() => navigate(`/client/messages?application=${app.id}`)}
-                        className="mt-3 w-full flex items-center justify-center gap-1.5 bg-[#E8F5F3] hover:bg-[#0D7B6B] hover:text-white text-[#0D7B6B] text-xs font-semibold py-2 rounded-lg transition-colors"
-                      >
-                        <MessageSquare size={14} />
-                        Ver mensaje
-                      </button>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
-            )}
-          </div>
+            </>
+          ) : (
+            /* ═══ PANEL DE CANDIDATOS (trabajo activo) ═══ */
+            <>
+              {/* Contador de interesados */}
+              <div className="bg-[#E8F5F3] border border-[#0D7B6B]/15 rounded-2xl p-5 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shrink-0">
+                  <Users size={20} className="text-[#0D7B6B]" />
+                </div>
+                <div>
+                  <p className="text-base font-bold text-[#1A1A2E] leading-tight">
+                    {applicantCount} {applicantCount === 1 ? 'profesional' : 'profesionales'}
+                  </p>
+                  <p className="text-xs text-[#6B7280]">
+                    {applicantCount > 0 ? 'interesados en tu publicación' : 'aún sin postulantes'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Lista de candidatos */}
+              <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 shadow-sm">
+                <h2 className="text-sm font-bold text-[#1A1A2E] mb-4">
+                  Candidatos ({applicantCount})
+                </h2>
+
+                {applicantCount === 0 ? (
+                  <div className="text-center py-8">
+                    <Users size={32} className="text-[#6B7280] opacity-30 mx-auto mb-2" />
+                    <p className="text-xs text-[#6B7280]">
+                      Todavía nadie ha postulado. Los técnicos cercanos verán tu publicación pronto.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {applicants.map(app => {
+                      const w = app.worker
+                      const initials = w.full_name
+                        .split(' ')
+                        .map(n => n[0])
+                        .join('')
+                        .slice(0, 2)
+                        .toUpperCase()
+                      return (
+                        <div
+                          key={app.id}
+                          className="bg-[#F8FAFC] border border-[#E5E7EB] rounded-xl p-4"
+                        >
+                          <div className="flex items-center gap-3">
+                            {/* Avatar */}
+                            <div className="w-11 h-11 rounded-full bg-[#E8F5F3] overflow-hidden flex items-center justify-center border border-[#0D7B6B]/15 shrink-0">
+                              {w.avatar_url ? (
+                                <img src={w.avatar_url} alt={w.full_name} className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-xs font-bold text-[#0D7B6B]">{initials}</span>
+                              )}
+                            </div>
+                            {/* Nombre + rating */}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1">
+                                <p className="text-sm font-semibold text-[#1A1A2E] truncate">
+                                  {w.full_name}
+                                </p>
+                                {w.identity_verified && (
+                                  <BadgeCheck size={15} className="text-[#0D7B6B] shrink-0" />
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1 mt-0.5 text-xs text-[#6B7280]">
+                                <Star size={13} className="text-amber-400 fill-amber-400" />
+                                {w.total_reviews > 0 ? (
+                                  <span>
+                                    {w.avg_rating} ({w.total_reviews}{' '}
+                                    {w.total_reviews === 1 ? 'reseña' : 'reseñas'})
+                                  </span>
+                                ) : (
+                                  <span className="italic">Sin reseñas aún</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Ver mensaje → chat */}
+                          <button
+                            onClick={() => navigate(`/client/messages?application=${app.id}`)}
+                            className="mt-3 w-full flex items-center justify-center gap-1.5 bg-[#E8F5F3] hover:bg-[#0D7B6B] hover:text-white text-[#0D7B6B] text-xs font-semibold py-2 rounded-lg transition-colors"
+                          >
+                            <MessageSquare size={14} />
+                            Ver mensaje
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Modal de confirmación para finalizar trabajo */}
+      {/* Modal de confirmación para finalizar búsqueda */}
       {showConfirmModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in fade-in zoom-in-95 duration-200">

@@ -186,7 +186,8 @@ export default function ClientJobsPage() {
       ) : (
         <div className="space-y-6">
           {jobs.map(job => {
-            const isActive = job.status === 'active' || job.status === 'matched'
+            const isActive = job.status === 'active'
+            const isMatched = job.status === 'matched'
             const isFinished = job.status === 'finished'
             const applicants = job.applications || []
             const applicantCount = applicants.length
@@ -208,8 +209,8 @@ export default function ClientJobsPage() {
                           FINALIZADO
                         </span>
                       )}
-                      {job.status === 'matched' && (
-                        <span className="text-[10px] font-bold text-[#3B82F6] bg-blue-50 px-2 py-0.5 rounded uppercase border border-blue-100">
+                      {isMatched && (
+                        <span className="text-[10px] font-bold text-[#0D7B6B] bg-[#E8F5F3] px-2 py-0.5 rounded uppercase border border-[#0D7B6B]/20">
                           EN PROCESO
                         </span>
                       )}
@@ -309,6 +310,21 @@ export default function ClientJobsPage() {
                         </Button>
                       </div>
                     </>
+                  ) : isMatched ? (
+                    /* Trabajo en proceso: botón de seguimiento */
+                    <div className="flex items-center justify-between w-full">
+                      <span className="text-xs font-medium text-[#0D7B6B] flex items-center gap-1.5">
+                        <CheckCircle2 size={14} />
+                        Trabajador asignado
+                      </span>
+                      <Button
+                        onClick={() => navigate(`/client/jobs/${job.id}`)}
+                        className="py-2 px-5 bg-[#0D7B6B] hover:bg-[#0A6A5C] text-white border-none flex items-center justify-center gap-1.5"
+                      >
+                        Ver Seguimiento
+                        <ArrowRight size={16} />
+                      </Button>
+                    </div>
                   ) : (
                     <>
                       {/* Estado de finalizado */}

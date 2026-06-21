@@ -15,6 +15,7 @@ import WorkerDashboardPage from '../pages/worker/WorkerDashboardPage'
 import WorkerJobDetailPage from '../pages/worker/WorkerJobDetailPage'
 import WorkerTrackingPage from '../pages/worker/WorkerTrackingPage'
 import WorkerProfilePage from '../pages/worker/WorkerProfilePage'
+import MessagesPage from '../pages/messages/MessagesPage'
 import PlaceholderPage from '../pages/PlaceholderPage'
 
 export const router = createBrowserRouter([
@@ -37,6 +38,7 @@ export const router = createBrowserRouter([
       { path: 'new-job', element: <NewJobPage /> },
       { path: 'jobs', element: <ClientJobsPage /> },
       { path: 'jobs/:id', element: <ClientJobDetailPage /> },
+      { path: 'messages', element: <MessagesPage /> },
       { path: '*', element: <PlaceholderPage /> },
     ],
   },
@@ -53,6 +55,7 @@ export const router = createBrowserRouter([
       { path: 'jobs/:id', element: <WorkerJobDetailPage /> },
       { path: 'tracking', element: <WorkerTrackingPage /> },
       { path: 'profile', element: <WorkerProfilePage /> },
+      { path: 'messages', element: <MessagesPage /> },
       { path: '*', element: <PlaceholderPage /> },
     ],
   },
