@@ -333,7 +333,7 @@ BEGIN
   WHERE id = NEW.reviewed_id;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE TRIGGER trigger_update_worker_rating
 AFTER INSERT ON reviews
@@ -361,17 +361,18 @@ BEGIN
   WHERE id = NEW.reviewed_id;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE TRIGGER trigger_update_client_rating
 AFTER INSERT ON reviews
 FOR EACH ROW
 EXECUTE FUNCTION update_client_rating();
 
--- Actualizar trabajos completados del trabajador
+-- Actualizar trabajos completados del trabajador y sincronizar estado del job_post
 CREATE OR REPLACE FUNCTION update_worker_jobs_completed()
 RETURNS TRIGGER AS $$
 BEGIN
+  -- Actualizar jobs_completed en el perfil del trabajador
   UPDATE worker_profiles
   SET jobs_completed = (
     SELECT COUNT(*)
@@ -379,9 +380,15 @@ BEGIN
     WHERE worker_id = NEW.worker_id AND status = 'finished'
   )
   WHERE id = NEW.worker_id;
+
+  -- Sincronizar el job_post para que pase a finished también
+  UPDATE job_posts
+  SET status = 'finished'
+  WHERE id = NEW.job_post_id;
+
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE TRIGGER trigger_update_worker_jobs
 AFTER UPDATE OF status ON job_matches

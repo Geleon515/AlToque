@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { useToast } from '../../components/ui/Toast'
@@ -565,7 +565,10 @@ export default function ClientJobDetailPage() {
                 </h2>
                 {match.worker ? (
                   <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-full bg-[#E8F5F3] overflow-hidden flex items-center justify-center border border-[#0D7B6B]/15 shrink-0">
+                    <Link 
+                      to={`/client/worker/${match.worker.id}`}
+                      className="w-11 h-11 rounded-full bg-[#E8F5F3] overflow-hidden flex items-center justify-center border border-[#0D7B6B]/15 shrink-0 hover:opacity-80 transition-opacity"
+                    >
                       {match.worker.avatar_url ? (
                         <img src={match.worker.avatar_url} alt={match.worker.full_name} className="w-full h-full object-cover" />
                       ) : (
@@ -573,10 +576,12 @@ export default function ClientJobDetailPage() {
                           {match.worker.full_name.charAt(0).toUpperCase()}
                         </span>
                       )}
-                    </div>
+                    </Link>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1">
-                        <p className="text-sm font-semibold text-[#1A1A2E] truncate">{match.worker.full_name}</p>
+                        <Link to={`/client/worker/${match.worker.id}`} className="text-sm font-semibold text-[#1A1A2E] truncate hover:text-[#0D7B6B] hover:underline transition-colors">
+                          {match.worker.full_name}
+                        </Link>
                         {match.worker.identity_verified && (
                           <BadgeCheck size={14} className="text-[#0D7B6B] shrink-0" />
                         )}
@@ -702,19 +707,22 @@ export default function ClientJobDetailPage() {
                         >
                           <div className="flex items-center gap-3">
                             {/* Avatar */}
-                            <div className="w-11 h-11 rounded-full bg-[#E8F5F3] overflow-hidden flex items-center justify-center border border-[#0D7B6B]/15 shrink-0">
+                            <Link 
+                              to={`/client/worker/${w.id}`}
+                              className="w-11 h-11 rounded-full bg-[#E8F5F3] overflow-hidden flex items-center justify-center border border-[#0D7B6B]/15 shrink-0 hover:opacity-80 transition-opacity"
+                            >
                               {w.avatar_url ? (
                                 <img src={w.avatar_url} alt={w.full_name} className="w-full h-full object-cover" />
                               ) : (
                                 <span className="text-xs font-bold text-[#0D7B6B]">{initials}</span>
                               )}
-                            </div>
+                            </Link>
                             {/* Nombre + rating */}
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-1">
-                                <p className="text-sm font-semibold text-[#1A1A2E] truncate">
+                                <Link to={`/client/worker/${w.id}`} className="text-sm font-semibold text-[#1A1A2E] truncate hover:text-[#0D7B6B] hover:underline transition-colors">
                                   {w.full_name}
-                                </p>
+                                </Link>
                                 {w.identity_verified && (
                                   <BadgeCheck size={15} className="text-[#0D7B6B] shrink-0" />
                                 )}

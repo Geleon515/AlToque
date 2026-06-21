@@ -11,6 +11,7 @@ import ClientProfilePage from '../pages/client/ClientProfilePage'
 import NewJobPage from '../pages/client/NewJobPage'
 import ClientJobsPage from '../pages/client/ClientJobsPage'
 import ClientJobDetailPage from '../pages/client/ClientJobDetailPage'
+import PublicWorkerProfilePage from '../pages/client/PublicWorkerProfilePage'
 import WorkerDashboardPage from '../pages/worker/WorkerDashboardPage'
 import WorkerJobsPage from '../pages/worker/WorkerJobsPage'
 import WorkerJobDetailPage from '../pages/worker/WorkerJobDetailPage'
@@ -39,6 +40,7 @@ export const router = createBrowserRouter([
       { path: 'new-job', element: <NewJobPage /> },
       { path: 'jobs', element: <ClientJobsPage /> },
       { path: 'jobs/:id', element: <ClientJobDetailPage /> },
+      { path: 'worker/:id', element: <PublicWorkerProfilePage /> },
       { path: 'messages', element: <MessagesPage /> },
       { path: '*', element: <PlaceholderPage /> },
     ],
