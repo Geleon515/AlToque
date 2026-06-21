@@ -71,12 +71,8 @@ export default function SidebarWorker({ onNavigate }: Props) {
             )}
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-[#1A1A2E] truncate">Panel de Control</p>
-            {isVerified ? (
-              <p className="text-xs text-[#10B981]">Estado: Verificado</p>
-            ) : (
-              <p className="text-xs text-[#F59E0B]">Estado: Pendiente</p>
-            )}
+            <p className="text-sm font-bold text-[#1A1A2E] truncate">{workerProfile?.full_name || 'Trabajador'}</p>
+            <p className="text-xs text-[#6B7280]">Estado: Trabajador</p>
           </div>
         </div>
       </div>
@@ -102,15 +98,6 @@ export default function SidebarWorker({ onNavigate }: Props) {
       </nav>
 
       <div className="p-2 border-t border-[#E5E7EB] space-y-1">
-        {plan === 'basic' && (
-          <button
-            onClick={() => handleNav('/worker/subscription')}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm text-white bg-[#1E293B] hover:bg-[#0F172A] transition-colors font-medium"
-          >
-            <Zap size={16} />
-            <span>Mejorar Plan</span>
-          </button>
-        )}
         <button
           onClick={() => handleNav('/worker/settings')}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#6B7280] hover:bg-[#F8FAFC] transition-colors"
