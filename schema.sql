@@ -441,6 +441,83 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Crear notificación automática agrupada por conversación al insertar un mensaje
+CREATE OR REPLACE FUNCTION handle_new_message_notification()
+RETURNS TRIGGER AS $$
+DECLARE
+  recipient_uuid UUID;
+  sender_name TEXT;
+  preview_text TEXT;
+  existing_notification_id UUID;
+BEGIN
+  -- Determinar el destinatario del mensaje (cliente o trabajador)
+  SELECT 
+    CASE 
+      WHEN NEW.sender_id = a.worker_id THEN jp.client_id
+      ELSE a.worker_id
+    END INTO recipient_uuid
+  FROM applications a
+  JOIN job_posts jp ON jp.id = a.job_post_id
+  WHERE a.id = NEW.application_id;
+
+  -- Obtener el nombre del remitente
+  SELECT full_name INTO sender_name FROM client_profiles WHERE id = NEW.sender_id;
+  IF sender_name IS NULL THEN
+    SELECT full_name INTO sender_name FROM worker_profiles WHERE id = NEW.sender_id;
+  END IF;
+
+  IF sender_name IS NULL THEN
+    sender_name := 'Alguien';
+  END IF;
+
+  -- Preparar vista previa amigable
+  IF NEW.content LIKE '{"type":"proposal"%' THEN
+    preview_text := 'Te ha enviado una propuesta de acuerdo';
+  ELSE
+    preview_text := SUBSTRING(NEW.content FROM 1 FOR 60);
+  END IF;
+
+  -- Solo si el destinatario es válido y no es el propio remitente
+  IF recipient_uuid IS NOT NULL AND recipient_uuid != NEW.sender_id THEN
+    -- Buscar si ya existe una notificación de mensaje para esta conversación
+    SELECT id INTO existing_notification_id 
+    FROM notifications 
+    WHERE user_id = recipient_uuid 
+      AND type = 'new_message' 
+      AND reference_id = NEW.application_id
+    LIMIT 1;
+
+    IF existing_notification_id IS NOT NULL THEN
+      -- Si ya existe, actualizamos el contenido, la fecha y la marcamos como no leída
+      UPDATE notifications 
+      SET 
+        title = 'Nuevo mensaje de ' || sender_name,
+        body = preview_text,
+        read = false,
+        created_at = now()
+      WHERE id = existing_notification_id;
+    ELSE
+      -- Si no existe, creamos una nueva
+      INSERT INTO notifications (user_id, type, title, body, reference_id)
+      VALUES (
+        recipient_uuid,
+        'new_message',
+        'Nuevo mensaje de ' || sender_name,
+        preview_text,
+        NEW.application_id
+      );
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER trigger_new_message_notification
+AFTER INSERT ON messages
+FOR EACH ROW
+EXECUTE FUNCTION handle_new_message_notification();
+
 -- ============================================
 -- 10. ROW LEVEL SECURITY (RLS)
 -- ============================================
