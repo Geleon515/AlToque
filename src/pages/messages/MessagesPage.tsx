@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { MessageSquare, Search, HandshakeIcon, Loader2, Inbox } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { MessageSquare, Search, HandshakeIcon, Loader2, Inbox, Send } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import type { Message, ChatThread, ProposalPayload } from '../../lib/types'
@@ -26,6 +27,8 @@ function formatRelativeTime(isoString: string): string {
 
 export default function MessagesPage() {
   const { user, role, clientProfile, workerProfile } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const appIdParam = searchParams.get('application') || searchParams.get('appId')
 
   const [threads, setThreads] = useState<ChatThread[]>([])
   const [loadingThreads, setLoadingThreads] = useState(true)
@@ -37,6 +40,11 @@ export default function MessagesPage() {
   const [search, setSearch] = useState('')
   const [showProposalModal, setShowProposalModal] = useState(false)
   const [acceptingProposalId, setAcceptingProposalId] = useState<string | null>(null)
+
+  const [textMessage, setTextMessage] = useState('')
+  const [sendingMessage, setSendingMessage] = useState(false)
+
+  const [unreadThreads, setUnreadThreads] = useState<Record<string, number>>({})
 
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -189,15 +197,125 @@ export default function MessagesPage() {
   const selectThread = useCallback(
     async (thread: ChatThread) => {
       setSelectedThread(thread)
+
+      // Limpiar indicador de no leído localmente
+      setUnreadThreads((prev) => {
+        const next = { ...prev }
+        delete next[thread.application_id]
+        return next
+      })
+
+      // Marcar notificaciones correspondientes como leídas en la BD
+      if (user) {
+        supabase
+          .from('notifications')
+          .update({ read: true })
+          .eq('user_id', user.id)
+          .eq('type', 'new_message')
+          .eq('reference_id', thread.application_id)
+          .then()
+      }
+
       await loadMessages(thread.application_id)
     },
-    [loadMessages],
+    [loadMessages, user],
   )
+
+  // ── Cargar conteos de hilos no leídos iniciales ────────────────────────────
+  useEffect(() => {
+    if (!user) return
+
+    const loadUnreadCounts = async () => {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('reference_id')
+        .eq('user_id', user.id)
+        .eq('type', 'new_message')
+        .eq('read', false)
+
+      if (!error && data) {
+        const counts: Record<string, number> = {}
+        data.forEach((n) => {
+          if (n.reference_id) {
+            counts[n.reference_id] = (counts[n.reference_id] || 0) + 1
+          }
+        })
+        setUnreadThreads(counts)
+      }
+    }
+
+    loadUnreadCounts()
+  }, [user])
+
+  // ── Auto-seleccionar hilo si viene en la URL (?application=<id>) ───────────
+  useEffect(() => {
+    if (threads.length > 0 && appIdParam) {
+      const thread = threads.find((t) => t.application_id === appIdParam)
+      if (thread && selectedThread?.application_id !== thread.application_id) {
+        selectThread(thread)
+        // Limpiamos los parámetros de la URL para evitar bucles de selección
+        searchParams.delete('application')
+        searchParams.delete('appId')
+        setSearchParams(searchParams, { replace: true })
+      }
+    }
+  }, [threads, appIdParam, selectThread, searchParams, setSearchParams, selectedThread?.application_id])
 
   // Auto-scroll al último mensaje
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // ── Suscripción a mensajes en tiempo real (global y local) ─────────────────
+  useEffect(() => {
+    if (!user) return
+
+    // Escuchar cualquier mensaje nuevo en la base de datos
+    const channel = supabase
+      .channel('global-messages')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+        },
+        (payload) => {
+          const newMessage = payload.new as Message
+
+          // Si es el hilo seleccionado (sea mío o del destinatario)
+          if (selectedThread && selectedThread.application_id === newMessage.application_id) {
+            setMessages((prev) => {
+              if (prev.some((m) => m.id === newMessage.id)) return prev
+              return [...prev, newMessage]
+            })
+
+            // Solo si es un mensaje recibido de otra persona, lo marcamos como leído en la BD
+            if (newMessage.sender_id !== user.id) {
+              supabase
+                .from('notifications')
+                .update({ read: true })
+                .eq('user_id', user.id)
+                .eq('type', 'new_message')
+                .eq('reference_id', newMessage.application_id)
+                .then()
+            }
+          } 
+          // Si es de otro hilo y no fue enviado por mí, incrementamos su contador de no leídos
+          else if (newMessage.sender_id !== user.id) {
+            setUnreadThreads((prev) => ({
+              ...prev,
+              [newMessage.application_id]: (prev[newMessage.application_id] || 0) + 1,
+            }))
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [user, selectedThread?.application_id])
 
   // ── Insertar mensaje automático (solo si la BD no tiene mensajes aún) ──────
   //
@@ -228,6 +346,28 @@ export default function MessagesPage() {
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedThread?.application_id])
+
+  // ── Enviar mensaje de texto ───────────────────────────────────────────────
+
+  const handleSendMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    const trimmed = textMessage.trim()
+    if (!trimmed || !selectedThread || !user) return
+
+    setSendingMessage(true)
+    setTextMessage('')
+
+    const { error } = await supabase.from('messages').insert({
+      application_id: selectedThread.application_id,
+      sender_id: user.id,
+      content: trimmed,
+    })
+
+    if (error) {
+      console.error('Error enviando mensaje:', error)
+    }
+    setSendingMessage(false)
+  }
 
   // ── Enviar propuesta de acuerdo ───────────────────────────────────────────
 
@@ -407,9 +547,16 @@ export default function MessagesPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex justify-between items-center">
                       <p className="text-sm font-semibold text-[#1A1A2E] truncate">{thread.other_name}</p>
-                      <span className="text-[10px] text-[#9CA3AF] shrink-0 ml-2">
-                        {formatRelativeTime(thread.applied_at)}
-                      </span>
+                      <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
+                        <span className="text-[10px] text-[#9CA3AF]">
+                          {formatRelativeTime(thread.applied_at)}
+                        </span>
+                        {unreadThreads[thread.application_id] > 0 && (
+                          <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-[#0D7B6B] text-white text-[9px] font-bold px-1 leading-none animate-pulse">
+                            {unreadThreads[thread.application_id]}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <p className="text-xs text-[#6B7280] truncate mt-0.5">{label}</p>
                     {thread.match ? (
@@ -489,15 +636,24 @@ export default function MessagesPage() {
                 {myInitial}
               </div>
 
-              {/* Input deshabilitado */}
-              <div className="flex-1 relative">
+              {/* Input habilitado */}
+              <form onSubmit={handleSendMessage} className="flex-1 relative flex items-center gap-2">
                 <input
                   type="text"
-                  disabled
-                  placeholder="El envío de mensajes de texto aún no está implementado..."
-                  className="w-full px-4 py-2.5 text-sm border border-[#E5E7EB] rounded-xl bg-[#F9FAFB] text-[#9CA3AF] cursor-not-allowed focus:outline-none"
+                  value={textMessage}
+                  onChange={(e) => setTextMessage(e.target.value)}
+                  placeholder="Escribe un mensaje..."
+                  className="w-full px-4 py-2.5 text-sm border border-[#E5E7EB] rounded-xl bg-[#F9FAFB] text-[#1A1A2E] focus:outline-none focus:ring-2 focus:ring-[#0D7B6B]/30 focus:border-[#0D7B6B] transition"
+                  disabled={sendingMessage}
                 />
-              </div>
+                <button
+                  type="submit"
+                  disabled={!textMessage.trim() || sendingMessage}
+                  className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-[#0D7B6B] text-white disabled:opacity-50 hover:bg-[#0A6A5C] transition-colors"
+                >
+                  <Send size={18} />
+                </button>
+              </form>
 
               {/* Botón propuesta de acuerdo */}
               {!selectedThread.match && (
