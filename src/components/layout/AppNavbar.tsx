@@ -1,24 +1,66 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bell, MessageSquare, UserCircle, Menu } from 'lucide-react'
+import { MessageSquare, UserCircle, Menu } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
+import { supabase } from '../../lib/supabase'
+import NotificationsDropdown from './NotificationsDropdown'
 
 interface Props {
   role: 'client' | 'worker'
   onMenuToggle: () => void
-  notificationCount?: number
 }
 
-export default function AppNavbar({ role, onMenuToggle, notificationCount }: Props) {
+export default function AppNavbar({ role, onMenuToggle }: Props) {
   const navigate = useNavigate()
-  const { signOut } = useAuth()
+  const { signOut, user } = useAuth()
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [unreadMsgCount, setUnreadMsgCount] = useState(0)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   const dashboardPath = role === 'client' ? '/client/dashboard' : '/worker/dashboard'
   const messagesPath = role === 'client' ? '/client/messages' : '/worker/messages'
   const profilePath = role === 'client' ? '/client/profile' : '/worker/profile'
   const settingsPath = role === 'client' ? '/client/settings' : '/worker/settings'
+
+  useEffect(() => {
+    if (!user) return
+
+    const fetchUnreadMsgCount = async () => {
+      const { count, error } = await supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('type', 'new_message')
+        .eq('read', false)
+
+      if (!error && count !== null) {
+        setUnreadMsgCount(count)
+      }
+    }
+
+    fetchUnreadMsgCount()
+
+    // Suscribirse a cambios de notificaciones en tiempo real para actualizar el badge
+    const channel = supabase
+      .channel('navbar-unread-messages')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          fetchUnreadMsgCount()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [user])
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -54,24 +96,19 @@ export default function AppNavbar({ role, onMenuToggle, notificationCount }: Pro
       </div>
 
       <div className="flex items-center gap-5">
-        <button
-          className="relative text-[#6B7280] hover:text-[#0D7B6B] transition-colors"
-          aria-label="Notificaciones"
-        >
-          <Bell size={22} />
-          {notificationCount && notificationCount > 0 ? (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center leading-none font-medium">
-              {notificationCount > 9 ? '9+' : notificationCount}
-            </span>
-          ) : null}
-        </button>
+        <NotificationsDropdown />
 
         <button
-          className="text-[#6B7280] hover:text-[#0D7B6B] transition-colors"
+          className="relative text-[#6B7280] hover:text-[#0D7B6B] transition-colors"
           onClick={() => navigate(messagesPath)}
           aria-label="Mensajes"
         >
           <MessageSquare size={22} />
+          {unreadMsgCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center leading-none font-medium">
+              {unreadMsgCount}
+            </span>
+          )}
         </button>
 
         <div className="relative" ref={dropdownRef}>
