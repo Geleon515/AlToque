@@ -47,6 +47,7 @@ export interface WorkerProfile {
   dni_doc_path?: string | null
   antecedentes_doc_path?: string | null
   certificados_doc_paths?: string[] | null
+  portfolio_urls?: string[] | null
   created_at: string
 }
 
@@ -187,6 +188,7 @@ export interface ChatThread {
   application_status: ApplicationStatus
   /** Match ya creado para esta aplicación, si existe */
   match: JobMatch | null
+  other_is_premium?: boolean
 }
 
 // ============================================================
