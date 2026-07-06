@@ -28,8 +28,10 @@ interface JobDetails extends JobPost {
 export default function WorkerJobDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, workerProfile } = useAuth()
   const { showToast } = useToast()
+
+  const isVerified = !!workerProfile?.identity_verified
 
   const [loading, setLoading] = useState(true)
   const [applying, setApplying] = useState(false)
@@ -106,6 +108,10 @@ export default function WorkerJobDetailPage() {
 
   const handleApply = async () => {
     if (!user || !job) return
+    if (!isVerified) {
+      showToast('Tu perfil aún está en revisión. Podrás postular una vez que verifiquemos tu identidad (2-3 días hábiles).', 'error')
+      return
+    }
     if (canApplyToday === false) {
       showToast('Has alcanzado tu límite de postulaciones diarias. Mejora tu plan a Premium para postular a más trabajos.', 'error')
       return
@@ -257,22 +263,33 @@ export default function WorkerJobDetailPage() {
                   </Button>
                 </div>
               </div>
+            ) : !isVerified ? (
+              <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
+                <div className="flex items-center gap-2 text-amber-800 font-bold mb-2">
+                  <AlertCircle size={20} />
+                  Perfil en revisión
+                </div>
+                <p className="text-xs text-amber-800 leading-relaxed">
+                  Podrás postular a este trabajo apenas verifiquemos tu identidad y documentos
+                  (entre 2 y 3 días hábiles). Te avisaremos cuando tu perfil quede activo.
+                </p>
+              </div>
             ) : (
               <div className="space-y-4">
-                <Button 
-                  onClick={handleApply} 
-                  loading={applying} 
+                <Button
+                  onClick={handleApply}
+                  loading={applying}
                   className="w-full py-3 text-base shadow-lg shadow-[#0D7B6B]/20"
                 >
                   Postular ahora
                 </Button>
-                
+
                 {canApplyToday === false && (
                   <p className="text-xs text-red-500 font-medium text-center">
                     Límite diario alcanzado. Mejora tu plan.
                   </p>
                 )}
-                
+
                 <p className="text-[11px] text-[#6B7280] text-center px-2">
                   Al postular, el cliente podrá ver tu perfil público, calificaciones y DNI validado.
                 </p>
