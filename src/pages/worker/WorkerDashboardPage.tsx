@@ -28,6 +28,7 @@ function parseLocation(hex: string): { lng: number, lat: number } | null {
 export default function WorkerDashboardPage() {
   const navigate = useNavigate()
   const { user, workerProfile } = useAuth()
+  const isVerified = !!workerProfile?.identity_verified
 
   const [applicationsToday, setApplicationsToday] = useState(0)
   const [maxApplications, setMaxApplications] = useState(2)
@@ -54,9 +55,11 @@ export default function WorkerDashboardPage() {
 
     if (user) {
       fetchStats()
-      fetchJobLocations()
+      // Las ubicaciones exactas de los trabajos solo se muestran a trabajadores
+      // verificados (privacidad de los clientes). Sin verificar → no se cargan pines.
+      if (isVerified) fetchJobLocations()
     }
-  }, [workerProfile?.location, user?.id])
+  }, [workerProfile?.location, workerProfile?.identity_verified, user?.id])
 
   const fetchJobLocations = async () => {
     try {
@@ -302,6 +305,16 @@ export default function WorkerDashboardPage() {
           <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50">
             <MapPin className="text-gray-400 mb-2" size={32} />
             <p className="text-sm text-gray-500 font-medium">Mapa no disponible</p>
+          </div>
+        )}
+
+        {/* Sin verificar: no se muestran las ubicaciones de los trabajos */}
+        {mapboxToken && !isVerified && (
+          <div className="absolute bottom-3 left-3 right-3 bg-white/95 backdrop-blur border border-amber-200 rounded-xl px-4 py-2.5 shadow-sm flex items-center gap-2.5">
+            <ShieldCheck size={16} className="text-amber-600 shrink-0" />
+            <p className="text-xs text-amber-800 font-medium leading-snug">
+              Las ubicaciones de los trabajos se mostrarán cuando tu perfil esté verificado.
+            </p>
           </div>
         )}
       </div>

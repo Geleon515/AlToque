@@ -10,7 +10,8 @@ import {
   Sparkles,
   Zap,
   Award,
-  AlertCircle
+  AlertCircle,
+  Clock
 } from 'lucide-react'
 import Button from '../../components/ui/Button'
 import type { SubscriptionPlan } from '../../lib/types'
@@ -24,7 +25,8 @@ interface SubscriptionData {
 }
 
 export default function WorkerSubscriptionPage() {
-  const { user } = useAuth()
+  const { user, workerProfile } = useAuth()
+  const isVerified = !!workerProfile?.identity_verified
   const [loading, setLoading] = useState(true)
   const [cancelling, setCancelling] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
@@ -425,6 +427,10 @@ export default function WorkerSubscriptionPage() {
                 {activePlan === 'premium' ? (
                   <div className="w-full text-center py-2.5 text-sm font-semibold text-[#0D7B6B] bg-[#E8F5F3] rounded-xl border border-[#0D7B6B]/20">
                     Suscripción Premium Activa
+                  </div>
+                ) : !isVerified ? (
+                  <div className="w-full text-center py-2.5 text-sm font-medium text-amber-700 bg-amber-50 rounded-xl border border-amber-200 flex items-center justify-center gap-2">
+                    <Clock size={14} /> Disponible al verificar tu perfil
                   </div>
                 ) : (
                   <Button
