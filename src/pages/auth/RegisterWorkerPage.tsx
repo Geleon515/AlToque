@@ -138,13 +138,21 @@ function FileUploadArea({
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [previews, setPreviews] = useState<string[]>([])
+  const [lightbox, setLightbox] = useState<string | null>(null)
 
-  // Generar URLs de vista previa para las imágenes y liberarlas al cambiar
+  // Generar URLs de vista previa (para todos los archivos) y liberarlas al cambiar
   useEffect(() => {
-    const urls = files.map(f => (f.type.startsWith('image/') ? URL.createObjectURL(f) : ''))
+    const urls = files.map(f => URL.createObjectURL(f))
     setPreviews(urls)
-    return () => urls.forEach(u => u && URL.revokeObjectURL(u))
+    return () => urls.forEach(u => URL.revokeObjectURL(u))
   }, [files])
+
+  // Abrir: imágenes en el visor, PDFs en pestaña nueva
+  const openFile = (i: number) => {
+    const f = files[i]
+    if (f.type.startsWith('image/')) setLightbox(previews[i])
+    else window.open(previews[i], '_blank')
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files ?? [])
@@ -166,24 +174,37 @@ function FileUploadArea({
               key={i}
               className="flex items-center gap-3 bg-[#E8F5F3] rounded-lg p-2 text-sm"
             >
-              {/* Vista previa: miniatura para imágenes, ícono para PDFs */}
-              {previews[i] ? (
-                <img
-                  src={previews[i]}
-                  alt={f.name}
-                  className="w-12 h-12 rounded-md object-cover shrink-0 border border-[#0D7B6B]/20"
-                />
-              ) : (
-                <div className="w-12 h-12 rounded-md bg-white flex items-center justify-center shrink-0 border border-[#0D7B6B]/20">
-                  <FileText className="w-5 h-5 text-[#0D7B6B]" />
-                </div>
-              )}
+              {/* Vista previa clickeable: miniatura para imágenes, ícono para PDFs */}
+              <button
+                type="button"
+                onClick={() => openFile(i)}
+                className="relative w-12 h-12 rounded-md shrink-0 border border-[#0D7B6B]/20 overflow-hidden group"
+                aria-label="Ver archivo"
+              >
+                {f.type.startsWith('image/') ? (
+                  <img src={previews[i]} alt={f.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-white flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-[#0D7B6B]" />
+                  </div>
+                )}
+                <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Eye className="w-4 h-4 text-white" />
+                </span>
+              </button>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1">
                   <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
                   <span className="truncate text-[#1A1A2E] font-medium">{f.name}</span>
                 </div>
-                <p className="text-xs text-[#6B7280]">{(f.size / 1024).toFixed(0)} KB</p>
+                <button
+                  type="button"
+                  onClick={() => openFile(i)}
+                  className="text-xs text-[#0D7B6B] hover:underline"
+                >
+                  {f.type.startsWith('image/') ? 'Ver imagen' : 'Abrir PDF'}
+                  <span className="text-[#6B7280] no-underline"> · {(f.size / 1024).toFixed(0)} KB</span>
+                </button>
               </div>
               <button
                 type="button"
@@ -226,6 +247,29 @@ function FileUploadArea({
         className="hidden"
         onChange={handleChange}
       />
+
+      {/* Visor de imagen a pantalla completa */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+          onClick={() => setLightbox(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setLightbox(null)}
+            className="absolute top-4 right-4 text-white/80 hover:text-white"
+            aria-label="Cerrar"
+          >
+            <X className="w-7 h-7" />
+          </button>
+          <img
+            src={lightbox}
+            alt="Vista previa"
+            className="max-w-full max-h-[90vh] rounded-lg object-contain"
+            onClick={e => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   )
 }
