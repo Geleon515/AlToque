@@ -29,7 +29,7 @@ export default function SidebarWorker({ onNavigate }: Props) {
   const navigate = useNavigate()
   const location = useLocation()
   const { workerProfile, signOut } = useAuth()
-  const [, setPlan] = useState<SubscriptionPlan>('basic')
+  const [plan, setPlan] = useState<SubscriptionPlan>('basic')
 
   useEffect(() => {
     if (!workerProfile?.id) return
@@ -38,7 +38,7 @@ export default function SidebarWorker({ onNavigate }: Props) {
       .select('plan')
       .eq('worker_id', workerProfile.id)
       .eq('status', 'active')
-      .single()
+      .maybeSingle()
       .then(({ data }) => {
         if (data?.plan) setPlan(data.plan as SubscriptionPlan)
       })
@@ -70,7 +70,14 @@ export default function SidebarWorker({ onNavigate }: Props) {
           </div>
           <div className="min-w-0">
             <p className="text-sm font-bold text-[#1A1A2E] truncate">{workerProfile?.full_name || 'Trabajador'}</p>
-            <p className="text-xs text-[#6B7280]">Estado: Trabajador</p>
+            <p className="text-xs text-[#6B7280] flex items-center gap-1">
+              Trabajador
+              {plan === 'premium' && (
+                <span className="inline-flex items-center text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                  Pro
+                </span>
+              )}
+            </p>
           </div>
         </div>
       </div>
