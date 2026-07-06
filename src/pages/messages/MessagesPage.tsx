@@ -90,28 +90,32 @@ export default function MessagesPage() {
               finished_at
             )
           `)
-          .eq('job_posts.client_id', user.id)
           .order('applied_at', { ascending: false })
 
         if (error) throw error
 
         const mapped: ChatThread[] = (data ?? [])
-          .filter((row: any) => row.job_posts)
-          .map((row: any) => ({
-            application_id: row.id,
-            job_post_id: row.job_post_id,
-            job_title: row.job_posts?.title ?? null,
-            job_description: row.job_posts?.description ?? '',
-            other_name: row.worker_profiles?.full_name ?? 'Trabajador',
-            other_avatar: row.worker_profiles?.avatar_url ?? null,
-            other_id: row.worker_id,
-            applied_at: row.applied_at,
-            application_status: row.status,
-            match: row.job_matches?.[0] ?? null,
-            other_is_premium: row.worker_profiles?.subscriptions?.some(
-              (s: any) => s.plan === 'premium' && s.status === 'active'
-            ) ?? false,
-          }))
+          .filter((row: any) => row.job_posts && row.job_posts.client_id === user.id)
+          .map((row: any) => {
+            const subs = row.worker_profiles?.subscriptions
+            const isPremium = Array.isArray(subs) 
+              ? subs.some((s: any) => s.plan === 'premium' && s.status === 'active')
+              : (subs?.plan === 'premium' && subs?.status === 'active')
+
+            return {
+              application_id: row.id,
+              job_post_id: row.job_post_id,
+              job_title: row.job_posts?.title ?? null,
+              job_description: row.job_posts?.description ?? '',
+              other_name: row.worker_profiles?.full_name ?? 'Trabajador',
+              other_avatar: row.worker_profiles?.avatar_url ?? null,
+              other_id: row.worker_id,
+              applied_at: row.applied_at,
+              application_status: row.status,
+              match: row.job_matches?.[0] ?? null,
+              other_is_premium: isPremium,
+            }
+          })
 
         setThreads(mapped)
       } else {
