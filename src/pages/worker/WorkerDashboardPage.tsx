@@ -189,7 +189,7 @@ export default function WorkerDashboardPage() {
 
     activeJobs.forEach(job => {
       const el = document.createElement('div')
-      el.className = 'w-8 h-8 flex items-center justify-center cursor-pointer hover:scale-110 transition-transform'
+      el.className = 'w-8 h-8 flex items-center justify-center cursor-pointer'
       el.innerHTML = `
         <div class="relative flex items-center justify-center">
           <div class="w-6 h-6 bg-amber-500 rounded-full border-2 border-white shadow-md flex items-center justify-center text-white relative z-10">

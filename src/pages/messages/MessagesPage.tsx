@@ -74,7 +74,8 @@ export default function MessagesPage() {
             worker_profiles (
               id,
               full_name,
-              avatar_url
+              avatar_url,
+              subscriptions(plan, status)
             ),
             job_matches (
               id,
@@ -107,6 +108,9 @@ export default function MessagesPage() {
             applied_at: row.applied_at,
             application_status: row.status,
             match: row.job_matches?.[0] ?? null,
+            other_is_premium: row.worker_profiles?.subscriptions?.some(
+              (s: any) => s.plan === 'premium' && s.status === 'active'
+            ) ?? false,
           }))
 
         setThreads(mapped)
@@ -174,7 +178,7 @@ export default function MessagesPage() {
     } finally {
       setLoadingThreads(false)
     }
-  }, [user, role])
+  }, [user?.id, role])
 
   useEffect(() => {
     loadThreads()
@@ -355,7 +359,7 @@ export default function MessagesPage() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [user, role, selectedThread?.application_id, loadThreads])
+  }, [user?.id, role, selectedThread?.application_id, loadThreads])
 
   // ── Insertar mensaje automático (solo si la BD no tiene mensajes aún) ──────
   //
@@ -619,7 +623,14 @@ export default function MessagesPage() {
                   {/* Info */}
                   <div className="min-w-0 flex-1">
                     <div className="flex justify-between items-center">
-                      <p className="text-sm font-semibold text-[#1A1A2E] truncate">{thread.other_name}</p>
+                      <p className="text-sm font-semibold text-[#1A1A2E] truncate flex items-center gap-1">
+                        {thread.other_name}
+                        {thread.other_is_premium && (
+                          <span className="bg-amber-100 text-amber-800 text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-0.5 shrink-0" title="Profesional Premium">
+                            <Award size={8} className="fill-amber-600" /> Pro
+                          </span>
+                        )}
+                      </p>
                       <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
                         <span className="text-[10px] text-[#9CA3AF]">
                           {formatRelativeTime(thread.applied_at)}
@@ -671,7 +682,14 @@ export default function MessagesPage() {
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-[#1A1A2E] truncate">{selectedThread.other_name}</p>
+              <p className="text-sm font-semibold text-[#1A1A2E] truncate flex items-center gap-1.5">
+                {selectedThread.other_name}
+                {selectedThread.other_is_premium && (
+                  <span className="bg-amber-100 text-amber-800 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-0.5 shrink-0" title="Profesional Premium">
+                    <Award size={10} className="fill-amber-600" /> Premium
+                  </span>
+                )}
+              </p>
               <p className="text-xs text-[#6B7280] truncate">
                 {selectedThread.job_title ?? selectedThread.job_description.slice(0, 50)}
               </p>

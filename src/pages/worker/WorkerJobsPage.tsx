@@ -7,8 +7,7 @@ import Button from '../../components/ui/Button'
 import { 
   Search, 
   MapPin, 
-  Briefcase, 
-  Filter, 
+  Briefcase,  
   Clock, 
   ChevronRight,
   Loader2,
@@ -39,12 +38,15 @@ export default function WorkerJobsPage() {
   const [jobs, setJobs] = useState<NearbyJob[]>([])
   const [radius] = useState(10) // km
   const [coordinates] = useState({ lat: -12.0621, lng: -77.1352 }) // Callao mock center
+  
+  const [searchTerm, setSearchTerm] = useState('')
+  const [sortOrder, setSortOrder] = useState<'distance' | 'recent'>('distance')
 
   useEffect(() => {
     if (user && workerProfile) {
       fetchJobs(coordinates.lng, coordinates.lat, radius)
     }
-  }, [user, workerProfile])
+  }, [user?.id, workerProfile?.id])
 
   const fetchJobs = async (lng: number, lat: number, rad: number) => {
     try {
@@ -139,17 +141,27 @@ export default function WorkerJobsPage() {
           <input 
             type="text" 
             placeholder="Buscar por palabra clave..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#E5E7EB] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0D7B6B]/20 focus:border-[#0D7B6B] transition-all"
           />
         </div>
         
         <div className="flex items-center gap-2">
-          <Button variant="outline" className="h-10 px-4 text-sm bg-white">
-            <Filter size={16} className="mr-2" />
-            Filtros
+          <Button 
+            variant="outline" 
+            onClick={() => setSortOrder('distance')}
+            className={`h-10 px-4 text-sm transition-colors ${sortOrder === 'distance' ? 'bg-[#E8F5F3] border-[#0D7B6B]/30 text-[#0D7B6B]' : 'bg-white'}`}
+          >
+            <MapPin size={16} className={`mr-2 ${sortOrder === 'distance' ? 'text-[#0D7B6B]' : 'text-[#6B7280]'}`} />
+            Cercanos
           </Button>
-          <Button variant="outline" className="h-10 px-4 text-sm bg-white">
-            <Clock size={16} className="mr-2 text-[#0D7B6B]" />
+          <Button 
+            variant="outline" 
+            onClick={() => setSortOrder('recent')}
+            className={`h-10 px-4 text-sm transition-colors ${sortOrder === 'recent' ? 'bg-[#E8F5F3] border-[#0D7B6B]/30 text-[#0D7B6B]' : 'bg-white'}`}
+          >
+            <Clock size={16} className={`mr-2 ${sortOrder === 'recent' ? 'text-[#0D7B6B]' : 'text-[#6B7280]'}`} />
             Recientes
           </Button>
         </div>
@@ -174,7 +186,21 @@ export default function WorkerJobsPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {jobs.map((job) => {
+            {jobs
+              .filter(job => {
+                if (!searchTerm) return true
+                const term = searchTerm.toLowerCase()
+                return job.title?.toLowerCase().includes(term) || 
+                       job.description?.toLowerCase().includes(term) || 
+                       job.category_name?.toLowerCase().includes(term)
+              })
+              .sort((a, b) => {
+                if (sortOrder === 'recent') {
+                  return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                }
+                return a.distance_km - b.distance_km
+              })
+              .map((job) => {
               const isApplied = job.has_applied
               
               return (
