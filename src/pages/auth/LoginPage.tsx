@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Mail, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
@@ -99,6 +99,17 @@ export default function LoginPage() {
     else if (role === 'worker') navigate('/worker/dashboard')
     else navigate('/register')
   }
+
+  // Si ya hay sesión activa (incluido el regreso del login con Google),
+  // reenviar al dashboard según el rol, o a elegir rol si aún no tiene.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        redirectByRole(session.user.user_metadata?.role as UserRole | undefined)
+      }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, MapPin, Upload, CheckCircle2, X } from 'lucide-react'
+import { Eye, EyeOff, MapPin, Upload, CheckCircle2, X, FileText } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
+import LocationPicker from '../../components/ui/LocationPicker'
 import ProgressBar from '../../components/ui/ProgressBar'
 import AuthNavbar from '../../components/layout/AuthNavbar'
 import { useToast } from '../../components/ui/Toast'
@@ -136,6 +137,22 @@ function FileUploadArea({
   onFiles: (files: File[]) => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const [previews, setPreviews] = useState<string[]>([])
+  const [lightbox, setLightbox] = useState<string | null>(null)
+
+  // Generar URLs de vista previa (para todos los archivos) y liberarlas al cambiar
+  useEffect(() => {
+    const urls = files.map(f => URL.createObjectURL(f))
+    setPreviews(urls)
+    return () => urls.forEach(u => URL.revokeObjectURL(u))
+  }, [files])
+
+  // Abrir: imágenes en el visor, PDFs en pestaña nueva
+  const openFile = (i: number) => {
+    const f = files[i]
+    if (f.type.startsWith('image/')) setLightbox(previews[i])
+    else window.open(previews[i], '_blank')
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files ?? [])
@@ -155,16 +172,47 @@ function FileUploadArea({
           {files.map((f, i) => (
             <div
               key={i}
-              className="flex items-center gap-2 bg-[#E8F5F3] rounded-lg px-3 py-2 text-sm"
+              className="flex items-center gap-3 bg-[#E8F5F3] rounded-lg p-2 text-sm"
             >
-              <CheckCircle2 className="w-4 h-4 text-[#10B981] shrink-0" />
-              <span className="flex-1 truncate text-[#1A1A2E]">{f.name}</span>
+              {/* Vista previa clickeable: miniatura para imágenes, ícono para PDFs */}
+              <button
+                type="button"
+                onClick={() => openFile(i)}
+                className="relative w-12 h-12 rounded-md shrink-0 border border-[#0D7B6B]/20 overflow-hidden group"
+                aria-label="Ver archivo"
+              >
+                {f.type.startsWith('image/') ? (
+                  <img src={previews[i]} alt={f.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-white flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-[#0D7B6B]" />
+                  </div>
+                )}
+                <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Eye className="w-4 h-4 text-white" />
+                </span>
+              </button>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+                  <span className="truncate text-[#1A1A2E] font-medium">{f.name}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openFile(i)}
+                  className="text-xs text-[#0D7B6B] hover:underline"
+                >
+                  {f.type.startsWith('image/') ? 'Ver imagen' : 'Abrir PDF'}
+                  <span className="text-[#6B7280] no-underline"> · {(f.size / 1024).toFixed(0)} KB</span>
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={() => removeFile(i)}
-                className="text-[#6B7280] hover:text-[#EF4444]"
+                className="text-[#6B7280] hover:text-[#EF4444] shrink-0"
+                aria-label="Quitar archivo"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
           ))}
@@ -199,6 +247,29 @@ function FileUploadArea({
         className="hidden"
         onChange={handleChange}
       />
+
+      {/* Visor de imagen a pantalla completa */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+          onClick={() => setLightbox(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setLightbox(null)}
+            className="absolute top-4 right-4 text-white/80 hover:text-white"
+            aria-label="Cerrar"
+          >
+            <X className="w-7 h-7" />
+          </button>
+          <img
+            src={lightbox}
+            alt="Vista previa"
+            className="max-w-full max-h-[90vh] rounded-lg object-contain"
+            onClick={e => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -251,6 +322,8 @@ export default function RegisterWorkerPage() {
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [googleLoading, setGoogleLoading] = useState(false)
+
+  const hasMapbox = !!import.meta.env.VITE_MAPBOX_TOKEN
 
   // Detectar sesión OAuth al montar
   useEffect(() => {
@@ -825,81 +898,94 @@ export default function RegisterWorkerPage() {
           {step === 4 && (
             <div className="space-y-5">
               <p className="text-sm text-[#6B7280]">
-                Tu ubicación nos permite mostrarte trabajos cerca de ti.
+                Marca tu ubicación en el mapa. Es la que usamos para mostrarte trabajos cerca de ti.
               </p>
 
-              {/* GPS */}
-              {!gpsLocation ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  loading={gpsLoading}
-                  onClick={handleGetLocation}
-                  className="w-full gap-2"
-                >
-                  <MapPin className="w-4 h-4" />
-                  Usar mi ubicación actual
-                </Button>
+              {hasMapbox ? (
+                /* Mapa interactivo: buscar, arrastrar el pin o usar GPS */
+                <LocationPicker
+                  value={gpsLocation}
+                  onChange={setGpsLocation}
+                  centerHint={
+                    (coverageDistrict && DISTRICT_COORDS[coverageDistrict]) ||
+                    DISTRICT_COORDS['Callao']
+                  }
+                />
               ) : (
-                <div className="flex items-center gap-3 bg-[#E8F5F3] rounded-xl px-4 py-3 text-sm">
-                  <CheckCircle2 className="w-5 h-5 text-[#10B981] shrink-0" />
-                  <div>
-                    <p className="font-semibold text-[#1A1A2E]">Ubicación detectada</p>
-                    <p className="text-[#6B7280] text-xs">
-                      {gpsLocation.lat.toFixed(4)}, {gpsLocation.lng.toFixed(4)}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setGpsLocation(null)}
-                    className="ml-auto text-[#6B7280] hover:text-[#EF4444]"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
+                /* Respaldo sin token de Mapbox: GPS + selección manual de distrito */
+                <>
+                  {!gpsLocation ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      loading={gpsLoading}
+                      onClick={handleGetLocation}
+                      className="w-full gap-2"
+                    >
+                      <MapPin className="w-4 h-4" />
+                      Usar mi ubicación actual
+                    </Button>
+                  ) : (
+                    <div className="flex items-center gap-3 bg-[#E8F5F3] rounded-xl px-4 py-3 text-sm">
+                      <CheckCircle2 className="w-5 h-5 text-[#10B981] shrink-0" />
+                      <div>
+                        <p className="font-semibold text-[#1A1A2E]">Ubicación detectada</p>
+                        <p className="text-[#6B7280] text-xs">
+                          {gpsLocation.lat.toFixed(4)}, {gpsLocation.lng.toFixed(4)}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setGpsLocation(null)}
+                        className="ml-auto text-[#6B7280] hover:text-[#EF4444]"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
 
-              {/* Selector manual (cuando GPS fue denegado o como alternativa) */}
-              {(gpsDenied || !gpsLocation) && (
-                <div>
-                  <p className="text-sm text-[#6B7280] mb-3">
-                    {gpsDenied
-                      ? 'GPS denegado. Selecciona tu distrito manualmente:'
-                      : 'O selecciona tu distrito manualmente:'}
-                  </p>
-                  <div className="grid grid-cols-2 gap-3">
+                  {(gpsDenied || !gpsLocation) && (
                     <div>
-                      <label className="block text-xs font-medium text-[#6B7280] mb-1">
-                        Provincia
-                      </label>
-                      <select
-                        value={manualProvince}
-                        onChange={e => setManualProvince(e.target.value)}
-                        className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2.5 text-sm text-[#1A1A2E] focus:outline-none focus:ring-2 focus:ring-[#0D7B6B]/30 focus:border-[#0D7B6B] bg-white"
-                      >
-                        <option value="Callao">Callao</option>
-                        <option value="Lima">Lima</option>
-                      </select>
+                      <p className="text-sm text-[#6B7280] mb-3">
+                        {gpsDenied
+                          ? 'GPS denegado. Selecciona tu distrito manualmente:'
+                          : 'O selecciona tu distrito manualmente:'}
+                      </p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-[#6B7280] mb-1">
+                            Provincia
+                          </label>
+                          <select
+                            value={manualProvince}
+                            onChange={e => setManualProvince(e.target.value)}
+                            className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2.5 text-sm text-[#1A1A2E] focus:outline-none focus:ring-2 focus:ring-[#0D7B6B]/30 focus:border-[#0D7B6B] bg-white"
+                          >
+                            <option value="Callao">Callao</option>
+                            <option value="Lima">Lima</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-[#6B7280] mb-1">
+                            Distrito
+                          </label>
+                          <select
+                            value={manualDistrict}
+                            onChange={e => setManualDistrict(e.target.value)}
+                            className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2.5 text-sm text-[#1A1A2E] focus:outline-none focus:ring-2 focus:ring-[#0D7B6B]/30 focus:border-[#0D7B6B] bg-white"
+                          >
+                            <option value="">Seleccionar</option>
+                            {DISTRITOS[manualProvince].map(d => (
+                              <option key={d} value={d}>
+                                {d}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-xs font-medium text-[#6B7280] mb-1">
-                        Distrito
-                      </label>
-                      <select
-                        value={manualDistrict}
-                        onChange={e => setManualDistrict(e.target.value)}
-                        className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2.5 text-sm text-[#1A1A2E] focus:outline-none focus:ring-2 focus:ring-[#0D7B6B]/30 focus:border-[#0D7B6B] bg-white"
-                      >
-                        <option value="">Seleccionar</option>
-                        {DISTRITOS[manualProvince].map(d => (
-                          <option key={d} value={d}>
-                            {d}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
+                  )}
+                </>
               )}
 
               {errors.location && (

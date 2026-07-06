@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
-import { MessageSquare, Search, HandshakeIcon, Loader2, Inbox, Send, ArrowLeft, Award } from 'lucide-react'
+import { MessageSquare, Search, HandshakeIcon, Loader2, Inbox, Send, ArrowLeft, Clock, Award } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import type { Message, ChatThread, ProposalPayload } from '../../lib/types'
@@ -536,6 +536,25 @@ export default function MessagesPage() {
   const myName =
     role === 'client' ? (clientProfile?.full_name ?? 'Cliente') : (workerProfile?.full_name ?? 'Trabajador')
   const myInitial = myName.charAt(0).toUpperCase()
+
+  // Candado (solo UI, MVP): el trabajador no verificado no puede usar el chat
+  if (role === 'worker' && workerProfile && !workerProfile.identity_verified) {
+    return (
+      <div className="-m-8 h-[calc(100vh-64px)] flex items-center justify-center bg-[#F8FAFC] p-6">
+        <div className="max-w-md text-center bg-white border border-amber-200 rounded-2xl p-8 shadow-sm">
+          <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+            <Clock className="w-7 h-7 text-amber-600" />
+          </div>
+          <h2 className="text-lg font-bold text-[#1A1A2E] mb-2">Chat no disponible aún</h2>
+          <p className="text-sm text-[#6B7280] leading-relaxed">
+            Podrás conversar con los clientes una vez que verifiquemos tu identidad
+            (entre 2 y 3 días hábiles). El chat se habilita cuando postulas a un trabajo
+            y tu perfil ya está activo.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   return (

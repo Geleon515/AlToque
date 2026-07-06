@@ -87,12 +87,13 @@ export default function AppNavbar({ role, onMenuToggle }: Props) {
         >
           <Menu size={24} />
         </button>
-        <span
-          className="text-xl font-bold text-[#0D7B6B] cursor-pointer select-none"
+        <div
+          className="flex items-center gap-2 cursor-pointer select-none"
           onClick={() => navigate(dashboardPath)}
         >
-          Al Toque
-        </span>
+          <img src="/logoAlToque.png" alt="AlToque" className="h-9 w-9 object-contain" />
+          <span className="text-xl font-bold text-[#0D7B6B]">AlToque</span>
+        </div>
       </div>
 
       <div className="flex items-center gap-5">
