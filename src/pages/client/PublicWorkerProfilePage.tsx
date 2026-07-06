@@ -8,7 +8,8 @@ import {
   UserCheck,
   Building2,
   Award,
-  Briefcase
+  Briefcase,
+  FileText
 } from 'lucide-react'
 
 // Helper for relative time
@@ -38,6 +39,7 @@ export default function PublicWorkerProfilePage() {
   const [specialties, setSpecialties] = useState<string[]>([])
   const [tags, setTags] = useState<string[]>([])
   const [reviews, setReviews] = useState<any[]>([])
+  const [certificateUrls, setCertificateUrls] = useState<string[]>([])
   const [showAllReviews, setShowAllReviews] = useState(false)
   const [isPremium, setIsPremium] = useState(false)
 
@@ -299,6 +301,30 @@ export default function PublicWorkerProfilePage() {
               ) : (
                 <p className="text-sm text-[#6B7280] italic">Este profesional aún no ha subido imágenes a su portafolio.</p>
               )}
+            </div>
+          )}
+
+          {/* Certificados y Documentos */}
+          {certificateUrls.length > 0 && (
+            <div className="bg-white border border-[#E5E7EB] rounded-2xl p-6 sm:p-8 shadow-sm">
+              <h2 className="text-xl font-bold text-[#1A1A2E] mb-4 flex items-center gap-2">
+                <FileText size={20} className="text-[#0D7B6B]" />
+                Certificados y Documentos
+              </h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {certificateUrls.map((url, idx) => (
+                  <a
+                    key={idx}
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="relative aspect-video rounded-xl overflow-hidden border border-[#E5E7EB] bg-gray-50 flex flex-col items-center justify-center hover:opacity-90 transition-opacity group p-4 text-center hover:border-[#0D7B6B]/30"
+                  >
+                    <FileText size={24} className="text-[#0D7B6B] mb-2 group-hover:scale-110 transition-transform" />
+                    <span className="text-xs font-medium text-[#1A1A2E]">Documento {idx + 1}</span>
+                  </a>
+                ))}
+              </div>
             </div>
           )}
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, Link } from 'react-router-dom'
 import { MessageSquare, Search, HandshakeIcon, Loader2, Inbox, Send, ArrowLeft, Award } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
@@ -655,26 +655,31 @@ export default function MessagesPage() {
               <ArrowLeft size={20} />
             </button>
 
-            <div className="w-9 h-9 rounded-full bg-[#E8F5F3] flex items-center justify-center text-[#0D7B6B] font-bold text-sm overflow-hidden shrink-0">
-              {selectedThread.other_avatar ? (
-                <img src={selectedThread.other_avatar} alt="" className="w-full h-full object-cover" />
-              ) : (
-                selectedThread.other_name.charAt(0).toUpperCase()
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-[#1A1A2E] truncate flex items-center gap-1.5">
-                {selectedThread.other_name}
-                {selectedThread.other_is_premium && (
-                  <span className="bg-amber-100 text-amber-800 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-0.5 shrink-0" title="Profesional Premium">
-                    <Award size={10} className="fill-amber-600" /> Premium
-                  </span>
+            <Link 
+              to={role === 'worker' ? `/worker/client/${selectedThread.other_id}` : `/client/worker/${selectedThread.other_id}`}
+              className="flex items-center gap-3 min-w-0 flex-1 group hover:bg-[#F8FAFC] p-1 -ml-1 rounded-lg transition-colors cursor-pointer"
+            >
+              <div className="w-9 h-9 rounded-full bg-[#E8F5F3] flex items-center justify-center text-[#0D7B6B] font-bold text-sm overflow-hidden shrink-0 group-hover:border-[#0D7B6B] transition-colors border border-transparent">
+                {selectedThread.other_avatar ? (
+                  <img src={selectedThread.other_avatar} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  selectedThread.other_name.charAt(0).toUpperCase()
                 )}
-              </p>
-              <p className="text-xs text-[#6B7280] truncate">
-                {selectedThread.job_title ?? selectedThread.job_description.slice(0, 50)}
-              </p>
-            </div>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-[#1A1A2E] truncate flex items-center gap-1.5 group-hover:text-[#0D7B6B] transition-colors">
+                  {selectedThread.other_name}
+                  {selectedThread.other_is_premium && (
+                    <span className="bg-amber-100 text-amber-800 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-0.5 shrink-0" title="Profesional Premium">
+                      <Award size={10} className="fill-amber-600" /> Premium
+                    </span>
+                  )}
+                </p>
+                <p className="text-xs text-[#6B7280] truncate">
+                  {selectedThread.job_title ?? selectedThread.job_description.slice(0, 50)}
+                </p>
+              </div>
+            </Link>
             {selectedThread.match ? (
               <span className="shrink-0 text-[10px] sm:text-xs font-medium text-[#10B981] bg-green-50 border border-green-200 px-2 sm:px-2.5 py-1 rounded-full flex items-center gap-1">
                 <span className="w-1.5 h-1.5 bg-[#10B981] rounded-full" />
