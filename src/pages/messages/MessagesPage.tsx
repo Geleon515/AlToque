@@ -290,6 +290,38 @@ export default function MessagesPage() {
               return [...prev, newMessage]
             })
 
+            // ¿Es una propuesta aceptada?
+            try {
+              const parsed = JSON.parse(newMessage.content)
+              if (parsed?.type === 'proposal_accepted') {
+                loadThreads()
+                const agreedPrice = parsed.amount
+                const scheduledDate = parsed.scheduled_date
+                setSelectedThread((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        match: {
+                          id: '',
+                          job_post_id: prev.job_post_id,
+                          worker_id: role === 'client' ? prev.other_id : user.id,
+                          application_id: prev.application_id,
+                          agreed_price: agreedPrice,
+                          scheduled_date: scheduledDate,
+                          worker_notes: null,
+                          status: 'accepted',
+                          matched_at: new Date().toISOString(),
+                          finished_at: null,
+                        },
+                        application_status: 'accepted',
+                      }
+                    : prev,
+                )
+              }
+            } catch {
+              // no es JSON o no es una propuesta
+            }
+
             // Solo si es un mensaje recibido de otra persona, lo marcamos como leído en la BD
             if (newMessage.sender_id !== user.id) {
               supabase
@@ -303,6 +335,14 @@ export default function MessagesPage() {
           } 
           // Si es de otro hilo y no fue enviado por mí, incrementamos su contador de no leídos
           else if (newMessage.sender_id !== user.id) {
+            // Si el mensaje es una propuesta aceptada, refrescamos los hilos para actualizar los badges/estados en el sidebar
+            try {
+              const parsed = JSON.parse(newMessage.content)
+              if (parsed?.type === 'proposal_accepted') {
+                loadThreads()
+              }
+            } catch {}
+
             setUnreadThreads((prev) => ({
               ...prev,
               [newMessage.application_id]: (prev[newMessage.application_id] || 0) + 1,
@@ -315,7 +355,7 @@ export default function MessagesPage() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [user, selectedThread?.application_id])
+  }, [user, role, selectedThread?.application_id, loadThreads])
 
   // ── Insertar mensaje automático (solo si la BD no tiene mensajes aún) ──────
   //
@@ -431,6 +471,20 @@ export default function MessagesPage() {
         .from('job_posts')
         .update({ status: 'matched' })
         .eq('id', selectedThread.job_post_id)
+
+      // 4. Enviar un mensaje de confirmación del acuerdo en el chat para avisar en tiempo real
+      const acceptPayload = {
+        type: 'proposal_accepted',
+        proposal_message_id: messageId,
+        amount: payload.amount,
+        scheduled_date: payload.scheduled_date,
+      }
+
+      await supabase.from('messages').insert({
+        application_id: selectedThread.application_id,
+        sender_id: user.id,
+        content: JSON.stringify(acceptPayload),
+      })
 
       // Refrescar hilos y mensajes para reflejar el match
       await loadThreads()
