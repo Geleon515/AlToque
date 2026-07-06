@@ -7,8 +7,7 @@ import Button from '../../components/ui/Button'
 import { 
   Search, 
   MapPin, 
-  Briefcase, 
-  Filter, 
+  Briefcase,  
   Clock, 
   ChevronRight,
   Loader2,
