@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom'
 import AppNavbar from './AppNavbar'
 import SidebarClient from './SidebarClient'
 import SidebarWorker from './SidebarWorker'
+import WorkerVerificationBanner from './WorkerVerificationBanner'
 
 interface Props {
   role: 'client' | 'worker'
@@ -42,6 +43,7 @@ export default function AppLayout({ role }: Props) {
       {/* Main content */}
       <main className="pt-16 md:pl-[180px] min-h-screen">
         <div className="p-8">
+          {role === 'worker' && <WorkerVerificationBanner />}
           <Outlet />
         </div>
       </main>
