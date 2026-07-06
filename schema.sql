@@ -42,6 +42,7 @@ CREATE TABLE worker_profiles (
   dni_doc_path TEXT,
   antecedentes_doc_path TEXT,
   certificados_doc_paths TEXT[],
+  portfolio_urls TEXT[] DEFAULT '{}',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -621,6 +622,8 @@ CREATE POLICY "reviews_write" ON reviews FOR INSERT WITH CHECK (auth.uid() = rev
 -- Subscriptions: solo el trabajador ve la suya
 CREATE POLICY "own_subscription" ON subscriptions
   FOR ALL USING (auth.uid() = worker_id);
+CREATE POLICY "subscriptions_read_public" ON subscriptions
+  FOR SELECT USING (true);
 
 -- Notifications: solo el usuario ve las suyas
 CREATE POLICY "own_notifications" ON notifications
