@@ -147,7 +147,7 @@ export default function ClientJobDetailPage() {
   const [workerLocation, setWorkerLocation] = useState<{lng: number, lat: number} | null>(null)
 
   useEffect(() => {
-    if (user && id) fetchJobDetail()
+    if (user && id) fetchJobDetail(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, id])
 
@@ -179,9 +179,25 @@ export default function ClientJobDetailPage() {
     }
   }, [job, match])
 
-  const fetchJobDetail = async () => {
+  // Polling silencioso para actualizar el estado del trabajo y acuerdo en tiempo real (cada 5 segundos)
+  useEffect(() => {
+    if (!id || !user) return
+
+    const interval = setInterval(async () => {
+      const currentJobFinished = job?.status === 'finished' || match?.status === 'finished'
+      if (!currentJobFinished) {
+        await fetchJobDetail(true)
+      }
+    }, 5000)
+
+    return () => {
+      clearInterval(interval)
+    }
+  }, [id, user?.id, job?.status, match?.status])
+
+  const fetchJobDetail = async (silent = false) => {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       if (!user || !id) return
 
       // 1. Datos del job_post
@@ -219,44 +235,42 @@ export default function ClientJobDetailPage() {
       if (error) throw error
       setJob(data as any)
 
-      // 2. Si el trabajo está matched, cargar el job_match con datos del trabajador
-      if (data?.status === 'matched' || data?.status === 'finished') {
-        const { data: matchData } = await supabase
-          .from('job_matches')
-          .select(`
+      // 2. Cargar el job_match con datos del trabajador si existe para este job_post_id
+      const { data: matchData } = await supabase
+        .from('job_matches')
+        .select(`
+          id,
+          status,
+          agreed_price,
+          scheduled_date,
+          worker_notes,
+          matched_at,
+          arrival_location_verified,
+          client_confirmed_arrival,
+          worker:worker_profiles(
             id,
-            status,
-            agreed_price,
-            scheduled_date,
-            worker_notes,
-            matched_at,
-            arrival_location_verified,
-            client_confirmed_arrival,
-            worker:worker_profiles(
-              id,
-              full_name,
-              avatar_url,
-              avg_rating,
-              total_reviews,
-              identity_verified,
-              subscriptions(plan, status)
-            )
-          `)
-          .eq('job_post_id', id)
-          .single()
+            full_name,
+            avatar_url,
+            avg_rating,
+            total_reviews,
+            identity_verified,
+            subscriptions(plan, status)
+          )
+        `)
+        .eq('job_post_id', id)
+        .maybeSingle()
 
-        setMatch(matchData as any ?? null)
+      setMatch(matchData as any ?? null)
 
-        // 3. Obtener reseña si ya finalizó o está en progreso (por si acaso)
-        if (matchData) {
-          const { data: reviewData } = await supabase
-            .from('reviews')
-            .select('*')
-            .eq('job_match_id', matchData.id)
-            .eq('reviewer_id', user.id)
-            .maybeSingle()
-          setClientReview(reviewData || null)
-        }
+      // 3. Obtener reseña si ya finalizó o está en progreso (por si acaso)
+      if (matchData) {
+        const { data: reviewData } = await supabase
+          .from('reviews')
+          .select('*')
+          .eq('job_match_id', matchData.id)
+          .eq('reviewer_id', user.id)
+          .maybeSingle()
+        setClientReview(reviewData || null)
       }
     } catch (error: any) {
       showToast('No se pudo cargar la publicación: ' + error.message, 'error')
@@ -336,7 +350,7 @@ export default function ClientJobDetailPage() {
   const applicantCount = applicants.length
   const attachments = job.job_attachments || []
   const isFinished = job.status === 'finished' || match?.status === 'finished'
-  const isMatched = job.status === 'matched' || isFinished
+  const isMatched = match !== null || isFinished
   const isActive = job.status === 'active' && !isMatched
   const categoryName = job.category?.name
   const CategoryIcon = categoryName ? CATEGORY_ICONS[categoryName] ?? Wrench : Wrench
@@ -488,14 +502,13 @@ export default function ClientJobDetailPage() {
           {isMatched && match ? (
             <>
               {/* Formulario de Calificación si el técnico ya marcó finalizado */}
-              {match.status === 'finished' && !clientReview && (
+              {isFinished && !clientReview && (
                 <ReviewWorkerForm 
                   jobMatchId={match.id}
                   workerId={match.worker?.id || ''}
                   workerName={match.worker?.full_name || 'Trabajador'}
                   onReviewSubmitted={(review) => {
-                    setClientReview(review)
-                    // Mostrar toast opcional si es necesario
+                    setClientReview(review || { rating: 0, comment: 'Calificado' })
                   }}
                 />
               )}

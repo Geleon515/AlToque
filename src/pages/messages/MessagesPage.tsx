@@ -98,7 +98,7 @@ export default function MessagesPage() {
           .filter((row: any) => row.job_posts && row.job_posts.client_id === user.id)
           .map((row: any) => {
             const subs = row.worker_profiles?.subscriptions
-            const isPremium = Array.isArray(subs) 
+            const isPremium = Array.isArray(subs)
               ? subs.some((s: any) => s.plan === 'premium' && s.status === 'active')
               : (subs?.plan === 'premium' && subs?.status === 'active')
 
@@ -308,21 +308,21 @@ export default function MessagesPage() {
                 setSelectedThread((prev) =>
                   prev
                     ? {
-                        ...prev,
-                        match: {
-                          id: '',
-                          job_post_id: prev.job_post_id,
-                          worker_id: role === 'client' ? prev.other_id : user.id,
-                          application_id: prev.application_id,
-                          agreed_price: agreedPrice,
-                          scheduled_date: scheduledDate,
-                          worker_notes: null,
-                          status: 'accepted',
-                          matched_at: new Date().toISOString(),
-                          finished_at: null,
-                        },
-                        application_status: 'accepted',
-                      }
+                      ...prev,
+                      match: {
+                        id: '',
+                        job_post_id: prev.job_post_id,
+                        worker_id: role === 'client' ? prev.other_id : user.id,
+                        application_id: prev.application_id,
+                        agreed_price: agreedPrice,
+                        scheduled_date: scheduledDate,
+                        worker_notes: null,
+                        status: 'accepted',
+                        matched_at: new Date().toISOString(),
+                        finished_at: null,
+                      },
+                      application_status: 'accepted',
+                    }
                     : prev,
                 )
               }
@@ -340,7 +340,7 @@ export default function MessagesPage() {
                 .eq('reference_id', newMessage.application_id)
                 .then()
             }
-          } 
+          }
           // Si es de otro hilo y no fue enviado por mí, incrementamos su contador de no leídos
           else if (newMessage.sender_id !== user.id) {
             // Si el mensaje es una propuesta aceptada, refrescamos los hilos para actualizar los badges/estados en el sidebar
@@ -349,7 +349,7 @@ export default function MessagesPage() {
               if (parsed?.type === 'proposal_accepted') {
                 loadThreads()
               }
-            } catch {}
+            } catch { }
 
             setUnreadThreads((prev) => ({
               ...prev,
@@ -392,7 +392,7 @@ export default function MessagesPage() {
           })
           .then(() => loadMessages(appId))
       })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedThread?.application_id])
 
   // ── Enviar mensaje de texto ───────────────────────────────────────────────
@@ -502,22 +502,22 @@ export default function MessagesPage() {
         setSelectedThread((prev) =>
           prev
             ? {
-                ...prev,
-                match: {
-                  id: '',
-                  job_post_id: prev.job_post_id,
-                  worker_id:
-                    role === 'client' ? prev.other_id : user.id,
-                  application_id: prev.application_id,
-                  agreed_price: payload.amount,
-                  scheduled_date: payload.scheduled_date,
-                  worker_notes: null,
-                  status: 'accepted',
-                  matched_at: new Date().toISOString(),
-                  finished_at: null,
-                },
-                application_status: 'accepted',
-              }
+              ...prev,
+              match: {
+                id: '',
+                job_post_id: prev.job_post_id,
+                worker_id:
+                  role === 'client' ? prev.other_id : user.id,
+                application_id: prev.application_id,
+                agreed_price: payload.amount,
+                scheduled_date: payload.scheduled_date,
+                worker_notes: null,
+                status: 'accepted',
+                matched_at: new Date().toISOString(),
+                finished_at: null,
+              },
+              application_status: 'accepted',
+            }
             : prev,
         )
       }
@@ -611,9 +611,8 @@ export default function MessagesPage() {
                 <button
                   key={thread.application_id}
                   onClick={() => selectThread(thread)}
-                  className={`w-full flex items-start gap-3 px-4 py-3.5 border-b border-[#F3F4F6] text-left transition-colors ${
-                    isActive ? 'bg-[#E8F5F3]' : 'hover:bg-[#F9FAFB]'
-                  }`}
+                  className={`w-full flex items-start gap-3 px-4 py-3.5 border-b border-[#F3F4F6] text-left transition-colors ${isActive ? 'bg-[#E8F5F3]' : 'hover:bg-[#F9FAFB]'
+                    }`}
                 >
                   {/* Avatar */}
                   <div className="shrink-0 w-10 h-10 rounded-full bg-[#E8F5F3] flex items-center justify-center text-[#0D7B6B] font-bold text-sm overflow-hidden">
@@ -678,7 +677,7 @@ export default function MessagesPage() {
               <ArrowLeft size={20} />
             </button>
 
-            <Link 
+            <Link
               to={role === 'worker' ? `/worker/client/${selectedThread.other_id}` : `/client/worker/${selectedThread.other_id}`}
               className="flex items-center gap-3 min-w-0 flex-1 group hover:bg-[#F8FAFC] p-1 -ml-1 rounded-lg transition-colors cursor-pointer"
             >

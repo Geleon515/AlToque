@@ -164,11 +164,15 @@ export default function WorkerTrackingPage() {
         setMatches(data as any)
         
         const matchIds = data.map(m => m.id)
-        const { data: reviewsData } = await supabase
+        const { data: reviewsData, error: reviewsError } = await supabase
           .from('reviews')
           .select('*')
           .in('job_match_id', matchIds)
           .eq('reviewer_id', user!.id)
+
+        if (reviewsError) {
+          console.error("Error al cargar reseñas del trabajador:", reviewsError)
+        }
           
         if (reviewsData) {
           const reviewsMap: Record<string, any> = {}
@@ -458,16 +462,16 @@ export default function WorkerTrackingPage() {
                     </span>
                   </div>
                   
-                  {!workerReviews[match.id] ? (
+                  {match.status === 'finished' && !workerReviews[match.id] ? (
                     <ReviewClientForm 
                       jobMatchId={match.id}
                       clientId={match.job?.client_id as string}
                       clientName={match.job?.client?.full_name || 'Cliente'}
                       onReviewSubmitted={(review) => {
-                        setWorkerReviews(prev => ({ ...prev, [match.id]: review }))
+                        setWorkerReviews(prev => ({ ...prev, [match.id]: review || { rating: 0, comment: 'Calificado' } }))
                       }}
                     />
-                  ) : (
+                  ) : match.status === 'finished' && workerReviews[match.id] ? (
                     <div className="mt-3 bg-emerald-50 rounded-xl p-3 border border-emerald-100 flex items-start gap-3">
                       <div className="mt-0.5">
                         <CheckCircle2 size={16} className="text-emerald-600" />
@@ -484,7 +488,7 @@ export default function WorkerTrackingPage() {
                         )}
                       </div>
                     </div>
-                  )}
+                  ) : null}
                 </div>
               ))}
             </div>
