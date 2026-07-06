@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, MapPin, Upload, CheckCircle2, X } from 'lucide-react'
+import { Eye, EyeOff, MapPin, Upload, CheckCircle2, X, FileText } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
@@ -137,6 +137,14 @@ function FileUploadArea({
   onFiles: (files: File[]) => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const [previews, setPreviews] = useState<string[]>([])
+
+  // Generar URLs de vista previa para las imágenes y liberarlas al cambiar
+  useEffect(() => {
+    const urls = files.map(f => (f.type.startsWith('image/') ? URL.createObjectURL(f) : ''))
+    setPreviews(urls)
+    return () => urls.forEach(u => u && URL.revokeObjectURL(u))
+  }, [files])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files ?? [])
@@ -156,16 +164,34 @@ function FileUploadArea({
           {files.map((f, i) => (
             <div
               key={i}
-              className="flex items-center gap-2 bg-[#E8F5F3] rounded-lg px-3 py-2 text-sm"
+              className="flex items-center gap-3 bg-[#E8F5F3] rounded-lg p-2 text-sm"
             >
-              <CheckCircle2 className="w-4 h-4 text-[#10B981] shrink-0" />
-              <span className="flex-1 truncate text-[#1A1A2E]">{f.name}</span>
+              {/* Vista previa: miniatura para imágenes, ícono para PDFs */}
+              {previews[i] ? (
+                <img
+                  src={previews[i]}
+                  alt={f.name}
+                  className="w-12 h-12 rounded-md object-cover shrink-0 border border-[#0D7B6B]/20"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-md bg-white flex items-center justify-center shrink-0 border border-[#0D7B6B]/20">
+                  <FileText className="w-5 h-5 text-[#0D7B6B]" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+                  <span className="truncate text-[#1A1A2E] font-medium">{f.name}</span>
+                </div>
+                <p className="text-xs text-[#6B7280]">{(f.size / 1024).toFixed(0)} KB</p>
+              </div>
               <button
                 type="button"
                 onClick={() => removeFile(i)}
-                className="text-[#6B7280] hover:text-[#EF4444]"
+                className="text-[#6B7280] hover:text-[#EF4444] shrink-0"
+                aria-label="Quitar archivo"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
           ))}
