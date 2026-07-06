@@ -19,12 +19,13 @@ function Navbar() {
   return (
     <nav className="sticky top-0 z-50 bg-white shadow-sm">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-        <span
+        <div
           onClick={() => navigate('/')}
-          className="text-xl font-bold text-[#0D7B6B] cursor-pointer select-none"
+          className="flex items-center gap-2 cursor-pointer select-none"
         >
-          Al Toque
-        </span>
+          <img src="/logoAlToque.png" alt="AlToque" className="h-9 w-9 object-contain" />
+          <span className="text-xl font-bold text-[#0D7B6B]">AlToque</span>
+        </div>
         <div className="flex items-center gap-2 sm:gap-3">
           <button
             onClick={() => navigate('/login')}
@@ -47,12 +48,15 @@ function Navbar() {
 // ─────────────────────────────────────────
 // HERO
 // ─────────────────────────────────────────
-const AVATAR_COLORS = [
-  'bg-blue-400',
-  'bg-emerald-400',
-  'bg-amber-400',
-  'bg-rose-400',
-  'bg-violet-400',
+// Fotos de avatar (rostros reales) para el social proof "10k+ usuarios".
+// pravatar.cc es un servicio gratuito de fotos de rostro; los ids fijos
+// evitan que la cara cambie en cada carga.
+const AVATARS = [
+  'https://i.pravatar.cc/80?img=12',
+  'https://i.pravatar.cc/80?img=45',
+  'https://i.pravatar.cc/80?img=32',
+  'https://i.pravatar.cc/80?img=5',
+  'https://i.pravatar.cc/80?img=60',
 ]
 
 function HeroSection() {
@@ -92,15 +96,18 @@ function HeroSection() {
           {/* Social proof */}
           <div className="flex items-center gap-3 justify-center md:justify-start pt-1">
             <div className="flex -space-x-2">
-              {AVATAR_COLORS.map((color, i) => (
-                <div
+              {AVATARS.map((url, i) => (
+                <img
                   key={i}
-                  className={`w-9 h-9 rounded-full ${color} border-2 border-[#E8F5F3]`}
+                  src={url}
+                  alt=""
+                  loading="lazy"
+                  className="w-9 h-9 rounded-full object-cover bg-[#E8F5F3] border-2 border-[#E8F5F3]"
                 />
               ))}
             </div>
             <p className="text-sm text-[#6B7280]">
-              <span className="font-bold text-[#1A1A2E]">10k+</span> usuarios confían en nosotros
+              <span className="font-bold text-[#1A1A2E]">+100</span> usuarios confían en nosotros
             </p>
           </div>
         </div>
@@ -110,15 +117,17 @@ function HeroSection() {
           {/* Imagen principal */}
           <div className="relative rounded-2xl overflow-hidden shadow-xl">
             <img
-              src="https://placehold.co/520x440/BFE0DA/0D7B6B?text=Plomero+Profesional"
+              src="https://vklwagysmthhsfsxoyjo.supabase.co/storage/v1/object/public/Imagenes-web/plomero_profesional.png"
               alt="Profesional de plomería trabajando"
-              className="w-full object-cover"
+              className="w-full h-[420px] object-cover"
             />
             {/* Badge trabajador verificado */}
             <div className="absolute bottom-4 left-4 bg-white rounded-xl px-3 py-2 flex items-center gap-2 shadow-lg">
-              <div className="w-9 h-9 rounded-full bg-[#0D7B6B] flex items-center justify-center text-white text-xs font-bold shrink-0">
-                CM
-              </div>
+              <img
+                src="https://i.pravatar.cc/80?img=13"
+                alt="Carlos M."
+                className="w-9 h-9 rounded-full object-cover shrink-0"
+              />
               <div>
                 <p className="text-xs font-bold text-[#1A1A2E]">Carlos M.</p>
                 <p className="text-xs text-[#6B7280]">Plomero Verificado</p>
@@ -139,9 +148,9 @@ function HeroSection() {
           {/* Imagen secundaria — solo desktop */}
           <div className="hidden md:block absolute -bottom-4 -right-8 w-36 rounded-xl overflow-hidden shadow-xl border-4 border-white">
             <img
-              src="https://placehold.co/200x160/F0F4F7/6B7280?text=Electricista"
+              src="https://vklwagysmthhsfsxoyjo.supabase.co/storage/v1/object/public/Imagenes-web/electricista_formal.png"
               alt="Electricista profesional"
-              className="w-full object-cover"
+              className="w-full h-32 object-cover"
             />
           </div>
         </div>
@@ -181,7 +190,7 @@ function HowItWorksSection() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-[#1A1A2E] mb-4">
-            ¿Cómo funciona Al Toque?
+            ¿Cómo funciona AlToque?
           </h2>
           <p className="text-[#6B7280] text-lg max-w-lg mx-auto">
             Un proceso simple de 3 pasos diseñado para la eficiencia y transparencia.
@@ -198,7 +207,7 @@ function HowItWorksSection() {
                 <div className="w-12 h-12 bg-[#E8F5F3] rounded-xl flex items-center justify-center shrink-0">
                   <Icon className="w-6 h-6 text-[#0D7B6B]" />
                 </div>
-                <span className="text-5xl font-black text-gray-100 leading-none select-none">
+                <span className="text-5xl font-black text-gray-300 leading-none select-none">
                   {number}
                 </span>
               </div>
@@ -268,9 +277,11 @@ function FeaturesSection() {
           <div className="bg-[#F0F4F7] rounded-2xl p-4 shadow-sm">
             {/* Header del chat */}
             <div className="flex items-center gap-3 pb-3 border-b border-gray-200 mb-4">
-              <div className="w-10 h-10 bg-[#0D7B6B] rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0">
-                RM
-              </div>
+              <img
+                src="https://i.pravatar.cc/80?img=33"
+                alt="Roberto M."
+                className="w-10 h-10 rounded-full object-cover shrink-0"
+              />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-[#1A1A2E]">Roberto M.</p>
                 <div className="flex items-center gap-1.5">
@@ -345,7 +356,7 @@ function Footer() {
   return (
     <footer className="bg-white border-t border-gray-100">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 flex flex-col md:flex-row items-center justify-between gap-4">
-        <span className="text-xl font-black text-[#0D7B6B] tracking-tight">AL TOQUE</span>
+        <span className="text-xl font-black text-[#0D7B6B] tracking-tight">AlToque</span>
         <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
           {FOOTER_LINKS.map((link) => (
             <a
@@ -358,7 +369,7 @@ function Footer() {
           ))}
         </nav>
         <p className="text-xs text-[#6B7280] text-center md:text-right">
-          © 2026 AL TOQUE — SERVICIOS LOCALES CONFIABLES
+          © 2026 AlToque — SERVICIOS LOCALES CONFIABLES
         </p>
       </div>
     </footer>

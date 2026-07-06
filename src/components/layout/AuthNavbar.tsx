@@ -6,12 +6,13 @@ export default function AuthNavbar() {
   return (
     <nav className="bg-white w-full">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-        <span
+        <div
           onClick={() => navigate('/')}
-          className="text-xl font-bold text-[#0D7B6B] cursor-pointer select-none"
+          className="flex items-center gap-2 cursor-pointer select-none"
         >
-          Al Toque
-        </span>
+          <img src="/logoAlToque.png" alt="AlToque" className="h-9 w-9 object-contain" />
+          <span className="text-xl font-bold text-[#0D7B6B]">AlToque</span>
+        </div>
         <div className="flex items-center gap-2 sm:gap-3">
           <button
             onClick={() => navigate('/login')}
