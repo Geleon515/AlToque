@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useToast } from '../../components/ui/Toast'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
-import { User, Mail, Phone, MapPin, Calendar, ClipboardCheck, Edit2, Camera, Loader2, Star } from 'lucide-react'
+import { User, Mail, Phone, MapPin, ClipboardCheck, Edit2, Camera, Loader2, Star } from 'lucide-react'
 
 // Distritos del Callao y Lima Metropolitana para la selección
 const DISTRICTS = [
