@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { useToast } from '../../components/ui/Toast'
@@ -14,7 +14,8 @@ import {
   CheckCircle2, 
   AlertCircle,
   FileVideo,
-  Loader2
+  Loader2,
+  Phone
 } from 'lucide-react'
 import type { JobPost, ClientProfile, JobAttachment, Application } from '../../lib/types'
 
@@ -41,7 +42,7 @@ export default function WorkerJobDetailPage() {
       fetchJobDetails()
       checkLimit()
     }
-  }, [id, user])
+  }, [id, user?.id])
 
   const checkLimit = async () => {
     if (!user) return
@@ -252,7 +253,7 @@ export default function WorkerJobDetailPage() {
                   El cliente revisará tu perfil. Si te acepta, el trabajo pasará a la sección de Seguimiento y se abrirá el chat.
                 </p>
                 <div className="mt-4 pt-4 border-t border-[#0D7B6B]/10">
-                  <Button variant="outline" onClick={() => navigate('/worker/dashboard')} className="w-full bg-white">
+                  <Button variant="outline" onClick={() => navigate('/worker/jobs')} className="w-full bg-white">
                     Ver más trabajos
                   </Button>
                 </div>
@@ -284,8 +285,8 @@ export default function WorkerJobDetailPage() {
           <div className="bg-white border border-[#E5E7EB] rounded-2xl p-6 shadow-sm">
             <h3 className="text-sm font-bold text-[#6B7280] uppercase tracking-wider mb-4">Acerca del Cliente</h3>
             
-            <div className="flex items-center gap-4 mb-5">
-              <div className="w-14 h-14 rounded-full bg-[#F8FAFC] border border-[#E5E7EB] flex items-center justify-center text-[#1A1A2E] text-xl font-bold overflow-hidden">
+            <Link to={`/worker/client/${job.client?.id}`} className="flex items-center gap-4 mb-5 group cursor-pointer">
+              <div className="w-14 h-14 rounded-full bg-[#F8FAFC] border border-[#E5E7EB] flex items-center justify-center text-[#1A1A2E] text-xl font-bold overflow-hidden group-hover:border-[#0D7B6B] transition-colors">
                 {job.client?.avatar_url ? (
                   <img src={job.client.avatar_url} alt={job.client.full_name} className="w-full h-full object-cover" />
                 ) : (
@@ -293,14 +294,14 @@ export default function WorkerJobDetailPage() {
                 )}
               </div>
               <div>
-                <p className="font-bold text-[#1A1A2E] text-lg">{job.client?.full_name || 'Cliente no identificado'}</p>
+                <p className="font-bold text-[#1A1A2E] text-lg group-hover:text-[#0D7B6B] transition-colors">{job.client?.full_name || 'Cliente no identificado'}</p>
                 <div className="flex items-center gap-1.5 mt-1">
                   <Star size={14} className="text-amber-500 fill-amber-500" />
                   <span className="text-sm font-bold text-[#1A1A2E]">{job.client?.avg_rating?.toFixed(1) || '5.0'}</span>
                   <span className="text-xs text-[#6B7280]">({job.client?.total_reviews || 0} reseñas)</span>
                 </div>
               </div>
-            </div>
+            </Link>
 
             <div className="space-y-3 pt-4 border-t border-[#F1F5F9]">
               <div className="flex items-center gap-3 text-sm text-[#6B7280]">
@@ -317,9 +318,23 @@ export default function WorkerJobDetailPage() {
               </div>
             </div>
 
-            <div className="mt-5 bg-gray-50 rounded-lg p-3 text-xs text-[#6B7280] italic text-center">
-              El número de teléfono del cliente será visible solo si acepta tu postulación.
-            </div>
+            {hasApplied ? (
+              <div className="mt-5 bg-[#E8F5F3] rounded-xl p-4 border border-[#0D7B6B]/20 flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-[#0D7B6B] font-bold mb-1 uppercase tracking-wider">Teléfono de Contacto</p>
+                  <p className="text-[#1A1A2E] font-extrabold text-lg">{job.client?.phone || 'No registrado'}</p>
+                </div>
+                {job.client?.phone && (
+                  <a href={`tel:${job.client.phone}`} className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-[#0D7B6B] shadow-sm hover:scale-105 transition-transform border border-[#0D7B6B]/10">
+                    <Phone size={18} />
+                  </a>
+                )}
+              </div>
+            ) : (
+              <div className="mt-5 bg-gray-50 rounded-lg p-3 text-xs text-[#6B7280] italic text-center">
+                El número de teléfono del cliente será visible al enviar tu postulación.
+              </div>
+            )}
           </div>
         </div>
 

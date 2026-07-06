@@ -47,7 +47,7 @@ export default function ClientDashboardPage() {
     if (user) {
       fetchDashboardData()
     }
-  }, [user])
+  }, [user?.id])
 
   const fetchDashboardData = async () => {
     try {

@@ -127,7 +127,7 @@ export default function ClientJobDetailPage() {
   useEffect(() => {
     if (user && id) fetchJobDetail()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, id])
+  }, [user?.id, id])
 
   // Lógica de tracking cuando el trabajo está "En camino"
   useEffect(() => {
