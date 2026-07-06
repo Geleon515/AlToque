@@ -75,7 +75,10 @@ interface Applicant {
     subscriptions?: {
       plan: string
       status: string
-    }[]
+    } | {
+      plan: string
+      status: string
+    }[] | null
   }
 }
 
@@ -98,7 +101,10 @@ interface MatchInfo {
     subscriptions?: {
       plan: string
       status: string
-    }[]
+    } | {
+      plan: string
+      status: string
+    }[] | null
   } | null
 }
 
@@ -114,6 +120,13 @@ interface JobDetail {
   category?: { name: string }
   job_attachments: Attachment[]
   applications: Applicant[]
+}
+
+const checkIsPremium = (subs: any) => {
+  if (!subs) return false
+  return Array.isArray(subs)
+    ? subs.some(s => s.plan === 'premium' && s.status === 'active')
+    : subs.plan === 'premium' && subs.status === 'active'
 }
 
 export default function ClientJobDetailPage() {
@@ -593,7 +606,7 @@ export default function ClientJobDetailPage() {
                         <Link to={`/client/worker/${match.worker.id}`} className="text-sm font-semibold text-[#1A1A2E] truncate hover:text-[#0D7B6B] hover:underline transition-colors">
                           {match.worker.full_name}
                         </Link>
-                        {match.worker.subscriptions?.some(s => s.plan === 'premium' && s.status === 'active') ? (
+                        {checkIsPremium(match.worker.subscriptions) ? (
                           <span className="bg-amber-100 text-amber-800 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-0.5 shrink-0" title="Profesional Premium">
                             <Award size={9} className="fill-amber-600" /> Premium
                           </span>
@@ -738,7 +751,7 @@ export default function ClientJobDetailPage() {
                                 <Link to={`/client/worker/${w.id}`} className="text-sm font-semibold text-[#1A1A2E] truncate hover:text-[#0D7B6B] hover:underline transition-colors">
                                   {w.full_name}
                                 </Link>
-                                {w.subscriptions?.some(s => s.plan === 'premium' && s.status === 'active') ? (
+                                {checkIsPremium(w.subscriptions) ? (
                                   <span className="bg-amber-100 text-amber-800 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-0.5 shrink-0" title="Profesional Premium">
                                     <Award size={9} className="fill-amber-600" /> Premium
                                   </span>
