@@ -360,9 +360,19 @@ export default function ClientDashboardPage() {
                           </span>
                         </div>
                         <p className="text-xs text-[#6B7280] truncate leading-normal">
-                          {msg.content?.includes('"type":"proposal"') 
-                            ? "Ha enviado una propuesta de acuerdo." 
-                            : msg.content}
+                          {(() => {
+                            try {
+                              if (msg.content?.startsWith('{')) {
+                                const parsed = JSON.parse(msg.content)
+                                if (parsed.type === 'proposal') return "Ha enviado una propuesta de acuerdo."
+                                if (parsed.type === 'proposal_accepted') return "Ha aceptado el acuerdo."
+                                if (parsed.type === 'job_finished') return "El trabajo ha finalizado."
+                              }
+                            } catch (e) {
+                              // Ignorar si no es un JSON válido y mostrar el texto normal
+                            }
+                            return msg.content
+                          })()}
                         </p>
                       </div>
                     </div>
