@@ -4,6 +4,7 @@ import { Eye, EyeOff, MapPin, Upload, CheckCircle2, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
+import LocationPicker from '../../components/ui/LocationPicker'
 import ProgressBar from '../../components/ui/ProgressBar'
 import AuthNavbar from '../../components/layout/AuthNavbar'
 import { useToast } from '../../components/ui/Toast'
@@ -251,6 +252,8 @@ export default function RegisterWorkerPage() {
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [googleLoading, setGoogleLoading] = useState(false)
+
+  const hasMapbox = !!import.meta.env.VITE_MAPBOX_TOKEN
 
   // Detectar sesión OAuth al montar
   useEffect(() => {
@@ -825,81 +828,94 @@ export default function RegisterWorkerPage() {
           {step === 4 && (
             <div className="space-y-5">
               <p className="text-sm text-[#6B7280]">
-                Tu ubicación nos permite mostrarte trabajos cerca de ti.
+                Marca tu ubicación en el mapa. Es la que usamos para mostrarte trabajos cerca de ti.
               </p>
 
-              {/* GPS */}
-              {!gpsLocation ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  loading={gpsLoading}
-                  onClick={handleGetLocation}
-                  className="w-full gap-2"
-                >
-                  <MapPin className="w-4 h-4" />
-                  Usar mi ubicación actual
-                </Button>
+              {hasMapbox ? (
+                /* Mapa interactivo: buscar, arrastrar el pin o usar GPS */
+                <LocationPicker
+                  value={gpsLocation}
+                  onChange={setGpsLocation}
+                  centerHint={
+                    (coverageDistrict && DISTRICT_COORDS[coverageDistrict]) ||
+                    DISTRICT_COORDS['Callao']
+                  }
+                />
               ) : (
-                <div className="flex items-center gap-3 bg-[#E8F5F3] rounded-xl px-4 py-3 text-sm">
-                  <CheckCircle2 className="w-5 h-5 text-[#10B981] shrink-0" />
-                  <div>
-                    <p className="font-semibold text-[#1A1A2E]">Ubicación detectada</p>
-                    <p className="text-[#6B7280] text-xs">
-                      {gpsLocation.lat.toFixed(4)}, {gpsLocation.lng.toFixed(4)}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setGpsLocation(null)}
-                    className="ml-auto text-[#6B7280] hover:text-[#EF4444]"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
+                /* Respaldo sin token de Mapbox: GPS + selección manual de distrito */
+                <>
+                  {!gpsLocation ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      loading={gpsLoading}
+                      onClick={handleGetLocation}
+                      className="w-full gap-2"
+                    >
+                      <MapPin className="w-4 h-4" />
+                      Usar mi ubicación actual
+                    </Button>
+                  ) : (
+                    <div className="flex items-center gap-3 bg-[#E8F5F3] rounded-xl px-4 py-3 text-sm">
+                      <CheckCircle2 className="w-5 h-5 text-[#10B981] shrink-0" />
+                      <div>
+                        <p className="font-semibold text-[#1A1A2E]">Ubicación detectada</p>
+                        <p className="text-[#6B7280] text-xs">
+                          {gpsLocation.lat.toFixed(4)}, {gpsLocation.lng.toFixed(4)}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setGpsLocation(null)}
+                        className="ml-auto text-[#6B7280] hover:text-[#EF4444]"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
 
-              {/* Selector manual (cuando GPS fue denegado o como alternativa) */}
-              {(gpsDenied || !gpsLocation) && (
-                <div>
-                  <p className="text-sm text-[#6B7280] mb-3">
-                    {gpsDenied
-                      ? 'GPS denegado. Selecciona tu distrito manualmente:'
-                      : 'O selecciona tu distrito manualmente:'}
-                  </p>
-                  <div className="grid grid-cols-2 gap-3">
+                  {(gpsDenied || !gpsLocation) && (
                     <div>
-                      <label className="block text-xs font-medium text-[#6B7280] mb-1">
-                        Provincia
-                      </label>
-                      <select
-                        value={manualProvince}
-                        onChange={e => setManualProvince(e.target.value)}
-                        className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2.5 text-sm text-[#1A1A2E] focus:outline-none focus:ring-2 focus:ring-[#0D7B6B]/30 focus:border-[#0D7B6B] bg-white"
-                      >
-                        <option value="Callao">Callao</option>
-                        <option value="Lima">Lima</option>
-                      </select>
+                      <p className="text-sm text-[#6B7280] mb-3">
+                        {gpsDenied
+                          ? 'GPS denegado. Selecciona tu distrito manualmente:'
+                          : 'O selecciona tu distrito manualmente:'}
+                      </p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-[#6B7280] mb-1">
+                            Provincia
+                          </label>
+                          <select
+                            value={manualProvince}
+                            onChange={e => setManualProvince(e.target.value)}
+                            className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2.5 text-sm text-[#1A1A2E] focus:outline-none focus:ring-2 focus:ring-[#0D7B6B]/30 focus:border-[#0D7B6B] bg-white"
+                          >
+                            <option value="Callao">Callao</option>
+                            <option value="Lima">Lima</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-[#6B7280] mb-1">
+                            Distrito
+                          </label>
+                          <select
+                            value={manualDistrict}
+                            onChange={e => setManualDistrict(e.target.value)}
+                            className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2.5 text-sm text-[#1A1A2E] focus:outline-none focus:ring-2 focus:ring-[#0D7B6B]/30 focus:border-[#0D7B6B] bg-white"
+                          >
+                            <option value="">Seleccionar</option>
+                            {DISTRITOS[manualProvince].map(d => (
+                              <option key={d} value={d}>
+                                {d}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-xs font-medium text-[#6B7280] mb-1">
-                        Distrito
-                      </label>
-                      <select
-                        value={manualDistrict}
-                        onChange={e => setManualDistrict(e.target.value)}
-                        className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2.5 text-sm text-[#1A1A2E] focus:outline-none focus:ring-2 focus:ring-[#0D7B6B]/30 focus:border-[#0D7B6B] bg-white"
-                      >
-                        <option value="">Seleccionar</option>
-                        {DISTRITOS[manualProvince].map(d => (
-                          <option key={d} value={d}>
-                            {d}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
+                  )}
+                </>
               )}
 
               {errors.location && (
