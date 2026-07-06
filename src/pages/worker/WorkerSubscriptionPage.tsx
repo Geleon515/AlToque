@@ -9,7 +9,6 @@ import {
   Calendar,
   Sparkles,
   Zap,
-  TrendingUp,
   Award,
   AlertCircle
 } from 'lucide-react'
@@ -25,9 +24,8 @@ interface SubscriptionData {
 }
 
 export default function WorkerSubscriptionPage() {
-  const { user, workerProfile } = useAuth()
+  const { user } = useAuth()
   const [loading, setLoading] = useState(true)
-  const [subscribing, setSubscribing] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [activePlan, setActivePlan] = useState<SubscriptionPlan>('basic')
@@ -134,7 +132,7 @@ export default function WorkerSubscriptionPage() {
     if (cardExpiry.length !== 5) {
       errors.cardExpiry = 'Formato inválido (MM/YY)'
     } else {
-      const [month, year] = cardExpiry.split('/')
+      const [month] = cardExpiry.split('/')
       const m = parseInt(month, 10)
       if (m < 1 || m > 12) {
         errors.cardExpiry = 'Mes inválido (01-12)'
