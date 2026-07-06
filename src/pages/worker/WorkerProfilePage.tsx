@@ -16,7 +16,8 @@ import {
   Loader2,
   MessageSquare,
   X,
-  Award
+  Award,
+  FileText
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 
@@ -54,6 +55,7 @@ export default function WorkerProfilePage() {
   const [isPremium, setIsPremium] = useState(false)
   const [portfolioUrls, setPortfolioUrls] = useState<string[]>([])
   const [uploadingPortfolio, setUploadingPortfolio] = useState(false)
+  const [certificateUrls, setCertificateUrls] = useState<string[]>([])
 
   useEffect(() => {
     if (workerProfile) {
@@ -141,6 +143,27 @@ export default function WorkerProfilePage() {
 
         setReviews(reviewsWithClients)
       }
+
+      // Cargar URLs firmadas para certificados
+      if (workerProfile.certificados_doc_paths && workerProfile.certificados_doc_paths.length > 0) {
+        const pathsToSign = workerProfile.certificados_doc_paths.filter((p: string) => !p.startsWith('http'))
+        const httpUrls = workerProfile.certificados_doc_paths.filter((p: string) => p.startsWith('http'))
+        
+        let signed: string[] = []
+        if (pathsToSign.length > 0) {
+          const { data: signedData, error: signError } = await supabase.storage
+            .from('worker-documents')
+            .createSignedUrls(pathsToSign, 3600)
+            
+          if (!signError && signedData) {
+            signed = signedData.map(d => d.signedUrl || '')
+          }
+        }
+        setCertificateUrls([...httpUrls, ...signed.filter(Boolean)])
+      } else {
+        setCertificateUrls([])
+      }
+
 
     } catch (err) {
       console.error('Error al cargar datos del perfil:', err)
@@ -291,6 +314,7 @@ export default function WorkerProfilePage() {
       if (updateError) throw updateError
 
       setPortfolioUrls(updatedUrls)
+      
       showToast('Foto agregada al portafolio.', 'success')
     } catch (error: any) {
       showToast('Error al subir la foto: ' + error.message, 'error')
@@ -613,6 +637,30 @@ export default function WorkerProfilePage() {
               </div>
             )}
           </div>
+
+          {/* Sección de Certificados */}
+          {certificateUrls.length > 0 && (
+            <div className="bg-white border border-[#E5E7EB] rounded-2xl p-6 sm:p-8 shadow-sm">
+              <h2 className="text-xl font-bold text-[#1A1A2E] mb-4 flex items-center gap-2">
+                <FileText size={20} className="text-[#0D7B6B]" />
+                Certificados y Documentos
+              </h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {certificateUrls.map((url, idx) => (
+                  <a
+                    key={idx}
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="relative aspect-video rounded-xl overflow-hidden border border-[#E5E7EB] bg-gray-50 flex flex-col items-center justify-center hover:opacity-90 transition-opacity group p-4 text-center hover:border-[#0D7B6B]/30"
+                  >
+                    <FileText size={24} className="text-[#0D7B6B] mb-2 group-hover:scale-110 transition-transform" />
+                    <span className="text-xs font-medium text-[#1A1A2E]">Documento {idx + 1}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Sección de Reseñas */}
           <div className="bg-white border border-[#E5E7EB] rounded-2xl p-6 sm:p-8 shadow-sm">
