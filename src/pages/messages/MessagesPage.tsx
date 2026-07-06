@@ -178,7 +178,7 @@ export default function MessagesPage() {
     } finally {
       setLoadingThreads(false)
     }
-  }, [user, role])
+  }, [user?.id, role])
 
   useEffect(() => {
     loadThreads()
@@ -359,7 +359,7 @@ export default function MessagesPage() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [user, role, selectedThread?.application_id, loadThreads])
+  }, [user?.id, role, selectedThread?.application_id, loadThreads])
 
   // ── Insertar mensaje automático (solo si la BD no tiene mensajes aún) ──────
   //

@@ -92,7 +92,7 @@ export default function ClientProfilePage() {
     if (user) {
       fetchProfileAndStats()
     }
-  }, [user])
+  }, [user?.id])
 
   const fetchProfileAndStats = async () => {
     try {

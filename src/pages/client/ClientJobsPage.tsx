@@ -56,7 +56,7 @@ export default function ClientJobsPage() {
     if (user) {
       fetchJobs()
     }
-  }, [user])
+  }, [user?.id])
 
   const fetchJobs = async () => {
     try {

@@ -54,7 +54,7 @@ export default function WorkerTrackingPage() {
     if (user) {
       fetchMatches()
     }
-  }, [user])
+  }, [user?.id])
 
   // Lógica de tracking cuando hay trabajos "En camino"
   useEffect(() => {
