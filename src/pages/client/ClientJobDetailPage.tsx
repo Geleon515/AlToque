@@ -25,7 +25,8 @@ import {
   Clock,
   DollarSign,
   Navigation,
-  User
+  User,
+  Award
 } from 'lucide-react'
 import { ReviewWorkerForm } from '../../components/reviews/ReviewWorkerForm'
 import type { MatchStatus } from '../../lib/types'
@@ -71,6 +72,10 @@ interface Applicant {
     identity_verified: boolean
     avg_rating: number
     total_reviews: number
+    subscriptions?: {
+      plan: string
+      status: string
+    }[]
   }
 }
 
@@ -90,6 +95,10 @@ interface MatchInfo {
     avg_rating: number
     total_reviews: number
     identity_verified: boolean
+    subscriptions?: {
+      plan: string
+      status: string
+    }[]
   } | null
 }
 
@@ -185,7 +194,8 @@ export default function ClientJobDetailPage() {
               avatar_url,
               identity_verified,
               avg_rating,
-              total_reviews
+              total_reviews,
+              subscriptions(plan, status)
             )
           )
         `)
@@ -215,7 +225,8 @@ export default function ClientJobDetailPage() {
               avatar_url,
               avg_rating,
               total_reviews,
-              identity_verified
+              identity_verified,
+              subscriptions(plan, status)
             )
           `)
           .eq('job_post_id', id)
@@ -582,9 +593,13 @@ export default function ClientJobDetailPage() {
                         <Link to={`/client/worker/${match.worker.id}`} className="text-sm font-semibold text-[#1A1A2E] truncate hover:text-[#0D7B6B] hover:underline transition-colors">
                           {match.worker.full_name}
                         </Link>
-                        {match.worker.identity_verified && (
+                        {match.worker.subscriptions?.some(s => s.plan === 'premium' && s.status === 'active') ? (
+                          <span className="bg-amber-100 text-amber-800 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-0.5 shrink-0" title="Profesional Premium">
+                            <Award size={9} className="fill-amber-600" /> Premium
+                          </span>
+                        ) : match.worker.identity_verified ? (
                           <BadgeCheck size={14} className="text-[#0D7B6B] shrink-0" />
-                        )}
+                        ) : null}
                       </div>
                       <div className="flex items-center gap-1 mt-0.5 text-xs text-[#6B7280]">
                         <Star size={12} className="text-amber-400 fill-amber-400" />
@@ -723,9 +738,13 @@ export default function ClientJobDetailPage() {
                                 <Link to={`/client/worker/${w.id}`} className="text-sm font-semibold text-[#1A1A2E] truncate hover:text-[#0D7B6B] hover:underline transition-colors">
                                   {w.full_name}
                                 </Link>
-                                {w.identity_verified && (
+                                {w.subscriptions?.some(s => s.plan === 'premium' && s.status === 'active') ? (
+                                  <span className="bg-amber-100 text-amber-800 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-0.5 shrink-0" title="Profesional Premium">
+                                    <Award size={9} className="fill-amber-600" /> Premium
+                                  </span>
+                                ) : w.identity_verified ? (
                                   <BadgeCheck size={15} className="text-[#0D7B6B] shrink-0" />
-                                )}
+                                ) : null}
                               </div>
                               <div className="flex items-center gap-1 mt-0.5 text-xs text-[#6B7280]">
                                 <Star size={13} className="text-amber-400 fill-amber-400" />

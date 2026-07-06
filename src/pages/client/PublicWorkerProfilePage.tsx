@@ -6,7 +6,9 @@ import {
   BadgeCheck,
   Star,
   UserCheck,
-  Building2
+  Building2,
+  Award,
+  Briefcase
 } from 'lucide-react'
 
 // Helper for relative time
@@ -37,6 +39,7 @@ export default function PublicWorkerProfilePage() {
   const [tags, setTags] = useState<string[]>([])
   const [reviews, setReviews] = useState<any[]>([])
   const [showAllReviews, setShowAllReviews] = useState(false)
+  const [isPremium, setIsPremium] = useState(false)
 
   useEffect(() => {
     if (id) {
@@ -108,6 +111,16 @@ export default function PublicWorkerProfilePage() {
         setReviews(reviewsWithClients)
       }
 
+      // 5. Fetch Subscription
+      const { data: subData } = await supabase
+        .from('subscriptions')
+        .select('plan, status')
+        .eq('worker_id', id)
+        .eq('status', 'active')
+        .maybeSingle()
+
+      setIsPremium(subData?.plan === 'premium')
+
     } catch (err) {
       console.error(err)
     } finally {
@@ -162,14 +175,27 @@ export default function PublicWorkerProfilePage() {
                   <span className="text-4xl font-bold">{profile.full_name.charAt(0).toUpperCase()}</span>
                 )}
               </div>
-              {profile.identity_verified && (
-                <div className="absolute -bottom-2 -right-2 bg-white rounded-full p-1 border border-[#E5E7EB]">
+              {isPremium ? (
+                <div className="absolute -bottom-2 -right-2 bg-amber-500 rounded-full p-1.5 border-2 border-white shadow-md" title="Verificado Premium">
+                  <Award className="text-white fill-amber-100" size={18} />
+                </div>
+              ) : profile.identity_verified ? (
+                <div className="absolute -bottom-2 -right-2 bg-white rounded-full p-1 border border-[#E5E7EB]" title="Identidad Verificada">
                   <BadgeCheck className="text-blue-500" fill="white" size={24} />
                 </div>
-              )}
+              ) : null}
             </div>
 
-            <h1 className="text-2xl font-black text-[#1A1A2E] tracking-tight">{profile.full_name}</h1>
+            <div className="flex flex-col items-center gap-1">
+              <div className="flex items-center gap-1.5 justify-center">
+                <h1 className="text-2xl font-black text-[#1A1A2E] tracking-tight">{profile.full_name}</h1>
+                {isPremium && (
+                  <span className="bg-amber-100 text-amber-800 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-0.5" title="Profesional Premium">
+                    <Award size={10} className="fill-amber-600" /> Premium
+                  </span>
+                )}
+              </div>
+            </div>
             <p className="text-[#0D7B6B] font-medium text-sm mt-1">{mainSpecialty}</p>
 
             <div className="flex items-center justify-center gap-1 mt-4 text-2xl font-black text-[#1A1A2E]">
@@ -248,6 +274,33 @@ export default function PublicWorkerProfilePage() {
               </div>
             )}
           </div>
+
+          {/* Portafolio de trabajos (Solo Premium) */}
+          {isPremium && (
+            <div className="bg-white border border-[#E5E7EB] rounded-2xl p-6 sm:p-8 shadow-sm">
+              <h2 className="text-xl font-bold text-[#1A1A2E] mb-4 flex items-center gap-2">
+                <Briefcase size={20} className="text-[#0D7B6B]" />
+                Portafolio de trabajos
+              </h2>
+              {profile.portfolio_urls && profile.portfolio_urls.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {profile.portfolio_urls.map((url: string, idx: number) => (
+                    <a
+                      key={idx}
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="relative aspect-video rounded-xl overflow-hidden border border-[#E5E7EB] bg-gray-50 group hover:opacity-90 transition-opacity"
+                    >
+                      <img src={url} alt={`Trabajo ${idx + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-[#6B7280] italic">Este profesional aún no ha subido imágenes a su portafolio.</p>
+              )}
+            </div>
+          )}
 
           {/* Reseñas */}
           <div className="bg-white border border-[#E5E7EB] rounded-2xl p-6 sm:p-8 shadow-sm">

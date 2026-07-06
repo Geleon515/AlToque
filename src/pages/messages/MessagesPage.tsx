@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { MessageSquare, Search, HandshakeIcon, Loader2, Inbox, Send } from 'lucide-react'
+import { MessageSquare, Search, HandshakeIcon, Loader2, Inbox, Send, ArrowLeft, Award } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import type { Message, ChatThread, ProposalPayload } from '../../lib/types'
@@ -74,7 +74,8 @@ export default function MessagesPage() {
             worker_profiles (
               id,
               full_name,
-              avatar_url
+              avatar_url,
+              subscriptions(plan, status)
             ),
             job_matches (
               id,
@@ -107,6 +108,9 @@ export default function MessagesPage() {
             applied_at: row.applied_at,
             application_status: row.status,
             match: row.job_matches?.[0] ?? null,
+            other_is_premium: row.worker_profiles?.subscriptions?.some(
+              (s: any) => s.plan === 'premium' && s.status === 'active'
+            ) ?? false,
           }))
 
         setThreads(mapped)
@@ -290,6 +294,38 @@ export default function MessagesPage() {
               return [...prev, newMessage]
             })
 
+            // ¿Es una propuesta aceptada?
+            try {
+              const parsed = JSON.parse(newMessage.content)
+              if (parsed?.type === 'proposal_accepted') {
+                loadThreads()
+                const agreedPrice = parsed.amount
+                const scheduledDate = parsed.scheduled_date
+                setSelectedThread((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        match: {
+                          id: '',
+                          job_post_id: prev.job_post_id,
+                          worker_id: role === 'client' ? prev.other_id : user.id,
+                          application_id: prev.application_id,
+                          agreed_price: agreedPrice,
+                          scheduled_date: scheduledDate,
+                          worker_notes: null,
+                          status: 'accepted',
+                          matched_at: new Date().toISOString(),
+                          finished_at: null,
+                        },
+                        application_status: 'accepted',
+                      }
+                    : prev,
+                )
+              }
+            } catch {
+              // no es JSON o no es una propuesta
+            }
+
             // Solo si es un mensaje recibido de otra persona, lo marcamos como leído en la BD
             if (newMessage.sender_id !== user.id) {
               supabase
@@ -303,6 +339,14 @@ export default function MessagesPage() {
           } 
           // Si es de otro hilo y no fue enviado por mí, incrementamos su contador de no leídos
           else if (newMessage.sender_id !== user.id) {
+            // Si el mensaje es una propuesta aceptada, refrescamos los hilos para actualizar los badges/estados en el sidebar
+            try {
+              const parsed = JSON.parse(newMessage.content)
+              if (parsed?.type === 'proposal_accepted') {
+                loadThreads()
+              }
+            } catch {}
+
             setUnreadThreads((prev) => ({
               ...prev,
               [newMessage.application_id]: (prev[newMessage.application_id] || 0) + 1,
@@ -315,7 +359,7 @@ export default function MessagesPage() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [user?.id, selectedThread?.application_id])
+  }, [user?.id, role, selectedThread?.application_id, loadThreads])
 
   // ── Insertar mensaje automático (solo si la BD no tiene mensajes aún) ──────
   //
@@ -432,6 +476,20 @@ export default function MessagesPage() {
         .update({ status: 'matched' })
         .eq('id', selectedThread.job_post_id)
 
+      // 4. Enviar un mensaje de confirmación del acuerdo en el chat para avisar en tiempo real
+      const acceptPayload = {
+        type: 'proposal_accepted',
+        proposal_message_id: messageId,
+        amount: payload.amount,
+        scheduled_date: payload.scheduled_date,
+      }
+
+      await supabase.from('messages').insert({
+        application_id: selectedThread.application_id,
+        sender_id: user.id,
+        content: JSON.stringify(acceptPayload),
+      })
+
       // Refrescar hilos y mensajes para reflejar el match
       await loadThreads()
       if (selectedThread) {
@@ -484,7 +542,7 @@ export default function MessagesPage() {
     /* -m-8 cancela el p-8 del AppLayout; h llena el área restante tras la navbar */
     <div className="-m-8 h-[calc(100vh-64px)] flex overflow-hidden bg-[#F8FAFC]">
       {/* ── Sidebar: lista de chats ───────────────────────────────────────── */}
-      <aside className="w-80 shrink-0 bg-white border-r border-[#E5E7EB] flex flex-col">
+      <aside className={`w-full md:w-80 shrink-0 bg-white border-r border-[#E5E7EB] flex flex-col ${selectedThread ? 'hidden md:flex' : 'flex'}`}>
         {/* Encabezado */}
         <div className="px-4 pt-5 pb-3 border-b border-[#E5E7EB]">
           <h1 className="text-lg font-bold text-[#1A1A2E] flex items-center gap-2">
@@ -546,7 +604,14 @@ export default function MessagesPage() {
                   {/* Info */}
                   <div className="min-w-0 flex-1">
                     <div className="flex justify-between items-center">
-                      <p className="text-sm font-semibold text-[#1A1A2E] truncate">{thread.other_name}</p>
+                      <p className="text-sm font-semibold text-[#1A1A2E] truncate flex items-center gap-1">
+                        {thread.other_name}
+                        {thread.other_is_premium && (
+                          <span className="bg-amber-100 text-amber-800 text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-0.5 shrink-0" title="Profesional Premium">
+                            <Award size={8} className="fill-amber-600" /> Pro
+                          </span>
+                        )}
+                      </p>
                       <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
                         <span className="text-[10px] text-[#9CA3AF]">
                           {formatRelativeTime(thread.applied_at)}
@@ -578,9 +643,18 @@ export default function MessagesPage() {
 
       {/* ── Panel derecho: chat activo ────────────────────────────────────── */}
       {selectedThread ? (
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 w-full bg-[#F8FAFC]">
           {/* Header del chat */}
-          <div className="flex items-center gap-3 px-5 py-4 bg-white border-b border-[#E5E7EB] shadow-sm">
+          <div className="flex items-center gap-3 px-4 py-3.5 bg-white border-b border-[#E5E7EB] shadow-sm shrink-0">
+            {/* Botón volver en mobile */}
+            <button
+              onClick={() => setSelectedThread(null)}
+              className="md:hidden shrink-0 p-1.5 -ml-1 text-[#6B7280] hover:bg-[#F3F4F6] rounded-xl transition-colors"
+              title="Volver a los chats"
+            >
+              <ArrowLeft size={20} />
+            </button>
+
             <div className="w-9 h-9 rounded-full bg-[#E8F5F3] flex items-center justify-center text-[#0D7B6B] font-bold text-sm overflow-hidden shrink-0">
               {selectedThread.other_avatar ? (
                 <img src={selectedThread.other_avatar} alt="" className="w-full h-full object-cover" />
@@ -588,17 +662,34 @@ export default function MessagesPage() {
                 selectedThread.other_name.charAt(0).toUpperCase()
               )}
             </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-[#1A1A2E] truncate">{selectedThread.other_name}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-[#1A1A2E] truncate flex items-center gap-1.5">
+                {selectedThread.other_name}
+                {selectedThread.other_is_premium && (
+                  <span className="bg-amber-100 text-amber-800 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-0.5 shrink-0" title="Profesional Premium">
+                    <Award size={10} className="fill-amber-600" /> Premium
+                  </span>
+                )}
+              </p>
               <p className="text-xs text-[#6B7280] truncate">
                 {selectedThread.job_title ?? selectedThread.job_description.slice(0, 50)}
               </p>
             </div>
-            {selectedThread.match && (
-              <span className="ml-auto shrink-0 text-xs font-medium text-[#10B981] bg-green-50 border border-green-200 px-2.5 py-1 rounded-full flex items-center gap-1">
+            {selectedThread.match ? (
+              <span className="shrink-0 text-[10px] sm:text-xs font-medium text-[#10B981] bg-green-50 border border-green-200 px-2 sm:px-2.5 py-1 rounded-full flex items-center gap-1">
                 <span className="w-1.5 h-1.5 bg-[#10B981] rounded-full" />
                 Acuerdo confirmado
               </span>
+            ) : (
+              /* Botón propuesta de acuerdo en el header (antes estaba abajo) */
+              <button
+                onClick={() => setShowProposalModal(true)}
+                title="Proponer acuerdo"
+                className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#0D7B6B] text-white text-xs font-semibold hover:bg-[#0A6A5C] transition-colors shadow-sm"
+              >
+                <HandshakeIcon size={14} />
+                <span>Acuerdo</span>
+              </button>
             )}
           </div>
 
@@ -629,15 +720,15 @@ export default function MessagesPage() {
           </div>
 
           {/* Barra inferior */}
-          <div className="bg-white border-t border-[#E5E7EB] px-4 py-3">
-            <div className="flex items-center gap-3">
+          <div className="bg-white border-t border-[#E5E7EB] px-4 py-3 shrink-0">
+            <div className="flex items-center gap-2.5">
               {/* Avatar propio */}
-              <div className="w-8 h-8 rounded-full bg-[#E8F5F3] flex items-center justify-center text-[#0D7B6B] font-bold text-xs shrink-0">
+              <div className="hidden sm:flex w-8 h-8 rounded-full bg-[#E8F5F3] items-center justify-center text-[#0D7B6B] font-bold text-xs shrink-0">
                 {myInitial}
               </div>
 
               {/* Input habilitado */}
-              <form onSubmit={handleSendMessage} className="flex-1 relative flex items-center gap-2">
+              <form onSubmit={handleSendMessage} className="flex-1 flex items-center gap-2">
                 <input
                   type="text"
                   value={textMessage}
@@ -654,24 +745,12 @@ export default function MessagesPage() {
                   <Send size={18} />
                 </button>
               </form>
-
-              {/* Botón propuesta de acuerdo */}
-              {!selectedThread.match && (
-                <button
-                  onClick={() => setShowProposalModal(true)}
-                  title="Proponer acuerdo"
-                  className="shrink-0 flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[#0D7B6B] text-white text-xs font-medium hover:bg-[#0A6A5C] transition-colors"
-                >
-                  <HandshakeIcon size={15} />
-                  <span className="hidden sm:inline">Proponer Acuerdo</span>
-                </button>
-              )}
             </div>
           </div>
         </div>
       ) : (
         /* Estado vacío — ningún hilo seleccionado */
-        <div className="flex-1 flex flex-col items-center justify-center text-center gap-4 bg-[#F8FAFC]">
+        <div className="hidden md:flex flex-1 flex-col items-center justify-center text-center gap-4 bg-[#F8FAFC]">
           <div className="w-16 h-16 rounded-2xl bg-[#E8F5F3] flex items-center justify-center">
             <Inbox size={32} className="text-[#0D7B6B]" />
           </div>

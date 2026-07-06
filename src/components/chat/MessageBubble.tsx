@@ -9,6 +9,13 @@ interface Props {
   acceptingProposalId: string | null  // ID del mensaje en proceso de aceptación
 }
 
+interface ProposalAcceptedPayload {
+  type: 'proposal_accepted'
+  proposal_message_id: string
+  amount: number
+  scheduled_date: string
+}
+
 /**
  * Intenta parsear el contenido de un mensaje como ProposalPayload.
  * Devuelve null si no es una propuesta.
@@ -18,6 +25,18 @@ function tryParseProposal(content: string): ProposalPayload | null {
     const parsed = JSON.parse(content)
     if (parsed?.type === 'proposal' && parsed.amount && parsed.scheduled_date) {
       return parsed as ProposalPayload
+    }
+  } catch {
+    // no es JSON — es un mensaje de texto normal
+  }
+  return null
+}
+
+function tryParseProposalAccepted(content: string): ProposalAcceptedPayload | null {
+  try {
+    const parsed = JSON.parse(content)
+    if (parsed?.type === 'proposal_accepted' && parsed.amount && parsed.scheduled_date) {
+      return parsed as ProposalAcceptedPayload
     }
   } catch {
     // no es JSON — es un mensaje de texto normal
@@ -56,7 +75,24 @@ export default function MessageBubble({
   acceptingProposalId,
 }: Props) {
   const proposal = tryParseProposal(message.content)
+  const proposalAccepted = tryParseProposalAccepted(message.content)
   const isAccepting = acceptingProposalId === message.id
+
+  if (proposalAccepted) {
+    return (
+      <div className="flex justify-center my-4 w-full">
+        <div className="flex items-center gap-2 bg-[#E8F5F3] border border-[#0D7B6B]/20 text-[#0A6A5C] px-4 py-2.5 rounded-xl text-xs font-medium shadow-sm max-w-sm text-center justify-center">
+          <CheckCircle2 size={14} className="text-[#10B981] shrink-0" />
+          <span>
+            Acuerdo confirmado por <strong className="font-semibold">S/ {proposalAccepted.amount.toFixed(2)}</strong> para el{' '}
+            <strong className="font-semibold">
+              {formatDate(proposalAccepted.scheduled_date)} a las {formatTime(proposalAccepted.scheduled_date)}
+            </strong>
+          </span>
+        </div>
+      </div>
+    )
+  }
 
   // ── Tarjeta de Propuesta de Acuerdo ─────────────────────────────────────────
   if (proposal) {

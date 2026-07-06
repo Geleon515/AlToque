@@ -12,6 +12,15 @@ export default function ProposalModal({ onConfirm, onClose }: Props) {
   const [time, setTime] = useState('')
   const [error, setError] = useState('')
 
+  // Obtener la fecha actual en la zona horaria local (YYYY-MM-DD)
+  const getLocalDateString = () => {
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -30,9 +39,20 @@ export default function ProposalModal({ onConfirm, onClose }: Props) {
       return
     }
 
-    // Combinar fecha + hora en ISO 8601
-    const scheduledDate = new Date(`${date}T${time}:00`).toISOString()
-    onConfirm(parsed, scheduledDate)
+    // Combinar fecha + hora en ISO 8601 (se interpreta en zona horaria local)
+    const scheduledDateTime = new Date(`${date}T${time}:00`)
+    
+    if (isNaN(scheduledDateTime.getTime())) {
+      setError('La fecha o la hora ingresada no es válida.')
+      return
+    }
+
+    if (scheduledDateTime < new Date()) {
+      setError('La fecha y hora de llegada no pueden estar en el pasado.')
+      return
+    }
+
+    onConfirm(parsed, scheduledDateTime.toISOString())
   }
 
   return (
@@ -100,7 +120,7 @@ export default function ProposalModal({ onConfirm, onClose }: Props) {
               <input
                 type="date"
                 value={date}
-                min={new Date().toISOString().split('T')[0]}
+                min={getLocalDateString()}
                 onChange={(e) => setDate(e.target.value)}
                 className="w-full pl-9 pr-3 py-2.5 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0D7B6B]/40 focus:border-[#0D7B6B] transition"
               />

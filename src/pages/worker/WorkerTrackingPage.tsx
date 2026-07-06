@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { useToast } from '../../components/ui/Toast'
+import ConfirmModal from '../../components/ui/ConfirmModal'
 
 import { MapPin, Navigation, Phone, MessageSquare, CheckCircle2, Loader2, Wrench, Calendar, Star } from 'lucide-react'
 import { ReviewClientForm } from '../../components/reviews/ReviewClientForm'
@@ -39,6 +40,10 @@ export default function WorkerTrackingPage() {
   const [matches, setMatches] = useState<TrackingMatch[]>([])
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [workerReviews, setWorkerReviews] = useState<Record<string, any>>({})
+  const [confirmModal, setConfirmModal] = useState<{ open: boolean; matchId: string | null }>({
+    open: false,
+    matchId: null,
+  })
 
   // Tracking states
   const [workerLocation, setWorkerLocation] = useState<{lng: number, lat: number} | null>(null)
@@ -414,9 +419,7 @@ export default function WorkerTrackingPage() {
                         {renderTimelineStep(match.status, 'on_the_way', 'En camino', Navigation, () => updateStatus(match.id, 'on_the_way'))}
                         {renderTimelineStep(match.status, 'in_progress', 'Ya llegué', Wrench, () => updateStatus(match.id, 'in_progress'), isNearby && match.status === 'on_the_way')}
                         {renderTimelineStep(match.status, 'finished', 'Finalizar', CheckCircle2, () => {
-                          if(confirm('¿Estás seguro de que deseas marcar este trabajo como finalizado?')) {
-                            updateStatus(match.id, 'finished')
-                          }
+                          setConfirmModal({ open: true, matchId: match.id })
                         })}
                       </div>
                     </div>
@@ -489,6 +492,24 @@ export default function WorkerTrackingPage() {
         )}
 
       </div>
+
+      {/* Modal de confirmación: Finalizar trabajo */}
+      <ConfirmModal
+        isOpen={confirmModal.open}
+        title="¿Finalizar trabajo?"
+        description="Una vez marcado como finalizado, el cliente podrá calificarte. Esta acción no se puede deshacer."
+        confirmText="Sí, finalizar trabajo"
+        cancelText="Cancelar"
+        variant="success"
+        loading={updatingId === confirmModal.matchId}
+        onConfirm={() => {
+          if (confirmModal.matchId) {
+            updateStatus(confirmModal.matchId, 'finished')
+          }
+          setConfirmModal({ open: false, matchId: null })
+        }}
+        onCancel={() => setConfirmModal({ open: false, matchId: null })}
+      />
     </div>
   )
 }

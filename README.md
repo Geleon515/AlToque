@@ -33,3 +33,15 @@ Estos usuarios están creados en el proyecto de Supabase para testing.
 | Rol | Trabajador |
 | Especialidad | Plomería |
 | Ciudad | Callao, Callao |
+
+## Tarjeta de prueba para Suscripción (Pasarela Simulada)
+
+Para simular la suscripción del trabajador al **Plan Premium**, puedes utilizar la siguiente tarjeta de prueba en el formulario de pago:
+
+| Campo | Valor de Prueba |
+|---|---|
+| Número de Tarjeta | `4111 1111 1111 1111` (Visa) |
+| Nombre del Titular | `JUAN PEREZ` (o cualquier nombre) |
+| Fecha de Vencimiento | `12/30` (o cualquier fecha futura en formato MM/YY) |
+| CVV | `123` (o cualquier código de 3 o 4 dígitos) |
+
