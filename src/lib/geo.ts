@@ -1,3 +1,30 @@
+// Supabase (PostgREST) devuelve las columnas GEOGRAPHY como hex WKB/EWKB
+// (ej. 0101000020E6100000...), no como texto POINT(lng lat). Esta función
+// decodifica ese hex a { lng, lat }, con respaldo para el formato de texto.
+export function parseLocation(raw: string | null | undefined): { lng: number; lat: number } | null {
+  if (!raw) return null
+
+  // Formato hex WKB/EWKB
+  if (/^[0-9a-fA-F]+$/.test(raw) && raw.length >= 50) {
+    try {
+      const dataHex = raw.substring(18)
+      const bytes = new Uint8Array(dataHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)))
+      const view = new DataView(bytes.buffer)
+      const lng = view.getFloat64(0, true)
+      const lat = view.getFloat64(8, true)
+      if (!Number.isNaN(lng) && !Number.isNaN(lat)) return { lng, lat }
+    } catch {
+      // cae al respaldo de texto
+    }
+  }
+
+  // Respaldo: formato de texto POINT(lng lat)
+  const match = raw.match(/POINT\(([^ ]+) ([^)]+)\)/)
+  if (match) return { lng: parseFloat(match[1]), lat: parseFloat(match[2]) }
+
+  return null
+}
+
 export function getDistanceInMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371e3; // Radio de la Tierra en metros
   const phi1 = lat1 * Math.PI / 180; // φ, λ en radianes

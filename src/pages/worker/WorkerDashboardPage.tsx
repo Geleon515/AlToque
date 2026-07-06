@@ -10,20 +10,7 @@ import {
   TrendingUp
 } from 'lucide-react'
 import Button from '../../components/ui/Button'
-
-function parseLocation(hex: string): { lng: number, lat: number } | null {
-  if (!hex || hex.length < 50) return null;
-  try {
-    const dataHex = hex.substring(18);
-    const bytes = new Uint8Array(dataHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
-    const view = new DataView(bytes.buffer);
-    const lng = view.getFloat64(0, true);
-    const lat = view.getFloat64(8, true);
-    return { lng, lat };
-  } catch(e) {
-    return null;
-  }
-}
+import { parseLocation } from '../../lib/geo'
 
 export default function WorkerDashboardPage() {
   const navigate = useNavigate()
@@ -47,10 +34,8 @@ export default function WorkerDashboardPage() {
 
   useEffect(() => {
     if (workerProfile?.location) {
-      const match = workerProfile.location.match(/POINT\(([^ ]+) ([^)]+)\)/)
-      if (match) {
-        setCoordinates({ lng: parseFloat(match[1]), lat: parseFloat(match[2]) })
-      }
+      const coords = parseLocation(workerProfile.location)
+      if (coords) setCoordinates(coords)
     }
 
     if (user) {

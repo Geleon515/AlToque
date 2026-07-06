@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { parseLocation } from '../../lib/geo'
 import { useToast } from '../../components/ui/Toast'
 import Button from '../../components/ui/Button'
 import { 
@@ -37,16 +38,18 @@ export default function WorkerJobsPage() {
   const [loading, setLoading] = useState(true)
   const [jobs, setJobs] = useState<NearbyJob[]>([])
   const [radius] = useState(10) // km
-  const [coordinates] = useState({ lat: -12.0621, lng: -77.1352 }) // Callao mock center
-  
+
   const [searchTerm, setSearchTerm] = useState('')
   const [sortOrder, setSortOrder] = useState<'distance' | 'recent'>('distance')
 
   useEffect(() => {
     if (user && workerProfile) {
-      fetchJobs(coordinates.lng, coordinates.lat, radius)
+      // Ubicación real del trabajador (guardada en el registro). Si por algún
+      // motivo no viniera, se usa el centro del Callao como respaldo.
+      const coords = parseLocation(workerProfile.location) ?? { lat: -12.0621, lng: -77.1352 }
+      fetchJobs(coords.lng, coords.lat, radius)
     }
-  }, [user?.id, workerProfile?.id])
+  }, [user?.id, workerProfile?.id, workerProfile?.location])
 
   const fetchJobs = async (lng: number, lat: number, rad: number) => {
     try {
