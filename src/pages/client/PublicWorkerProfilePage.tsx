@@ -123,6 +123,26 @@ export default function PublicWorkerProfilePage() {
 
       setIsPremium(subData?.plan === 'premium')
 
+      // 6. Cargar URLs firmadas para certificados
+      if (pData.certificados_doc_paths && pData.certificados_doc_paths.length > 0) {
+        const pathsToSign = pData.certificados_doc_paths.filter((p: string) => !p.startsWith('http'))
+        const httpUrls = pData.certificados_doc_paths.filter((p: string) => p.startsWith('http'))
+        
+        let signed: string[] = []
+        if (pathsToSign.length > 0) {
+          const { data: signedData, error: signError } = await supabase.storage
+            .from('worker-documents')
+            .createSignedUrls(pathsToSign, 3600)
+            
+          if (!signError && signedData) {
+            signed = signedData.map(d => d.signedUrl || '')
+          }
+        }
+        setCertificateUrls([...httpUrls, ...signed.filter(Boolean)])
+      } else {
+        setCertificateUrls([])
+      }
+
     } catch (err) {
       console.error(err)
     } finally {
