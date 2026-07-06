@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { MessageSquare, Search, HandshakeIcon, Loader2, Inbox, Send, ArrowLeft, Clock } from 'lucide-react'
+import { MessageSquare, Search, HandshakeIcon, Loader2, Inbox, Send, ArrowLeft, Clock, Award } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import type { Message, ChatThread, ProposalPayload } from '../../lib/types'
